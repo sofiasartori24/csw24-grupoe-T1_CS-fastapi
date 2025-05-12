@@ -48,3 +48,5 @@ Sofia Batista Sartori
 * **services/**: camada intermediária que executa as regras de negócio, utilizando os repositórios. Ex: validações de reservas.
 * **schemas/**: define os modelos de entrada e saída da API utilizando Pydantic (validação).
 * **routers/**: define os endpoints da API REST.
+
+![Diagrama Entidade-Relacionamento](diagram-bd.png)
