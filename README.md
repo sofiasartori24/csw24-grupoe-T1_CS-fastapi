@@ -83,12 +83,11 @@ app/
 
 * **Framework**: FastAPI
 * **Linguagem**: Python
-* **Banco de Dados**: PostgreSQL
+* **Banco de Dados**: SQLite
 * **ORM**: SQLAlchemy
 * **Documentação**: Swagger UI
 * **Empacotamento**: Docker
-* **Provisionamento**: Terraform (opcional)
-* **Nuvem**: AWS (opcional)
+
 
 ---
 
