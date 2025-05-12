@@ -7,18 +7,18 @@ Consiste em um API para gerenciamento de reservas usando fastapi
 Sofia Batista Sartori
 
 ### Tabelas 
-Buildings -> Predio
-Rooms -> Salas
-Users -> Usuários
-Profiles -> Perfis
-Classes -> Turmas
-Disciplines -> Disciplinas
-Curriculums -> Currículos
-Evaluations -> Avaliações
-Lessons -> Aulas
-Reservations -> Reservas
-Resources -> Recursos
-Resource_types -> TiposdeRecursos
+* Buildings -> Predio
+* Rooms -> Salas
+* Users -> Usuários
+* Profiles -> Perfis
+* Classes -> Turmas
+* Disciplines -> Disciplinas
+* Curriculums -> Currículos
+* Evaluations -> Avaliações
+* Lessons -> Aulas
+* Reservations -> Reservas
+* Resources -> Recursos
+* Resource_types -> TiposdeRecursos
 
 ### Como rodar o projeto
 
