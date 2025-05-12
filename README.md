@@ -38,7 +38,7 @@ Sofia Batista Sartori
      pip install requests
      ```
    
-3. Acesse a documentação da API (Swagger UI) em:
+3. **Acesse a documentação da API (Swagger UI) em:**
    👉 [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ### Arquitetura:
