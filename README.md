@@ -103,6 +103,7 @@ docker-compose up --build
 ```bash
 pip install requests
 ```
+    * Obs: Caso o banco já esteja populado pode ser que o script falhe
 
 3. **Acesse a documentação da API**:
    👉 [http://localhost:8000/docs](http://localhost:8000/docs)
