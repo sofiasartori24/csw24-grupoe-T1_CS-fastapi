@@ -15,11 +15,6 @@
 ## 📘 Descrição
 
 Projeto desenvolvido para o Trabalho 1 da disciplina **Construção de Software**.
-Consiste em uma API REST para gerenciamento acadêmico com múltiplos perfis (Administrador, Coordenador, Professor), permitindo:
-
-* Cadastro e controle de prédios, salas, disciplinas, currículos e recursos
-* Gestão de turmas, aulas, avaliações e reservas
-* Documentação via Swagger
 
 ---
 
