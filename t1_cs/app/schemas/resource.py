@@ -14,8 +14,14 @@ class ResourceBase(BaseModel):
 class ResourceCreate(ResourceBase):
     resource_type_id: int
 
+    
 class ResourceResponse(ResourceBase):
     id: int
-    resource_type: ResourceTypeResponse
+    resource_type_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ResourceUpdate(ResourceBase):
+    resource_type_id: int
 
     model_config = ConfigDict(from_attributes=True)

@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.discipline import DisciplineService
 from app.schemas.discipline import DisciplineCreate, DisciplineResponse
+from app.dependencies.permissions import require_coordinator
+
 
 router = APIRouter(prefix="/disciplines", tags=["Disciplines"])
 
@@ -24,11 +26,11 @@ def get_discipline(discipline_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Discipline not found")
     return discipline
 
-@router.post("/", response_model=DisciplineResponse)
+@router.post("/", response_model=DisciplineResponse, dependencies=[Depends(require_coordinator)])
 def create_discipline(discipline: DisciplineCreate, db: Session = Depends(get_db)):
     return DisciplineService.create_discipline(db, discipline)
 
-@router.delete("/{discipline_id}")
+@router.delete("/{discipline_id}", dependencies=[Depends(require_coordinator)])
 def delete_discipline(discipline_id: int, db: Session = Depends(get_db)):
     discipline = DisciplineService.delete_discipline(db, discipline_id)
     if not discipline:

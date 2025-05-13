@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from app.repositories.resource import ResourceRepository
 from app.schemas.resource import ResourceCreate
+from app.schemas.resource import ResourceUpdate
+
 
 class ResourceService:
     @staticmethod
@@ -18,3 +20,7 @@ class ResourceService:
     @staticmethod
     def delete_resource(db: Session, resource_id: int):
         return ResourceRepository.delete(db, resource_id)
+
+    @staticmethod
+    def update_resource(db: Session, resource_id: int, resource_data: ResourceUpdate):
+        return ResourceRepository.update(db, resource_id, resource_data)

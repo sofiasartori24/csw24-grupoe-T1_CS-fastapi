@@ -177,3 +177,7 @@ cython_debug/
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# VS Code / Visual Studio local settings
+.vs/
+.vscode/

@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.curriculum import CurriculumService
 from app.schemas.curriculum import CurriculumCreate, CurriculumResponse
+from app.dependencies.permissions import require_coordinator
+
 
 router = APIRouter(prefix="/curriculums", tags=["Curriculums"])
 
@@ -24,11 +26,11 @@ def get_curriculum(curriculum_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Curriculum not found")
     return curriculum
 
-@router.post("/", response_model=CurriculumResponse)
+@router.post("/", response_model=CurriculumResponse, dependencies=[Depends(require_coordinator)])
 def create_curriculum(curriculum: CurriculumCreate, db: Session = Depends(get_db)):
     return CurriculumService.create_curriculum(db, curriculum)
 
-@router.delete("/{curriculum_id}")
+@router.delete("/{curriculum_id}", dependencies=[Depends(require_coordinator)])
 def delete_curriculum(curriculum_id: int, db: Session = Depends(get_db)):
     curriculum = CurriculumService.delete_curriculum(db, curriculum_id)
     if not curriculum:
