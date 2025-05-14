@@ -1,18 +1,18 @@
 from sqlalchemy.orm import Session
 from app.models.class_model import Class
-from app.schemas.class_schema import ClassCreate
+from app.schemas.class_schema import ClassCreate, ClassUpdate
 
 class ClassRepository:
-    @staticmethod
-    def get_all(db: Session):
-        return db.query(Class).all()
+    def __init__(self, db: Session):
+        self.db = db
 
-    @staticmethod
-    def get_by_id(db: Session, class_id: int):
-        return db.query(Class).filter(Class.id == class_id).first()
+    def get_all(self):
+        return self.db.query(Class).all()
 
-    @staticmethod
-    def create(db: Session, class_data: ClassCreate):
+    def get_by_id(self, class_id: int):
+        return self.db.query(Class).filter(Class.id == class_id).first()
+
+    def create(self, class_data: ClassCreate):
         db_class = Class(
             semester=class_data.semester,
             schedule=class_data.schedule,
@@ -20,15 +20,25 @@ class ClassRepository:
             discipline_id=class_data.discipline_id,
             professor_id=class_data.professor_id,
         )
-        db.add(db_class)
-        db.commit()
-        db.refresh(db_class)
+        self.db.add(db_class)
+        self.db.commit()
+        self.db.refresh(db_class)
         return db_class
 
-    @staticmethod
-    def delete(db: Session, class_id: int):
-        db_class = db.query(Class).filter(Class.id == class_id).first()
+    def update(self, class_id: int, class_update: ClassUpdate):
+        db_class = self.db.query(Class).filter(Class.id == class_id).first()
+        if not db_class:
+            return None
+        update_data = class_update.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_class, key, value)
+        self.db.commit()
+        self.db.refresh(db_class)
+        return db_class
+
+    def delete(self, class_id: int):
+        db_class = self.db.query(Class).filter(Class.id == class_id).first()
         if db_class:
-            db.delete(db_class)
-            db.commit()
+            self.db.delete(db_class)
+            self.db.commit()
         return db_class

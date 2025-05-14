@@ -9,6 +9,9 @@ class DisciplineBase(BaseModel):
 class DisciplineCreate(DisciplineBase):
     pass
 
+class DisciplineUpdate(DisciplineBase):
+    pass
+
 class DisciplineResponse(DisciplineBase):
     id: int
 

@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, ConfigDict
 from datetime import date
 
@@ -12,6 +13,13 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     profile_id: int
 
+class UserUpdate(BaseModel):
+    email: Optional[str] = None
+    name: Optional[str] = None
+    birth_date: Optional[date] = None
+    gender: Optional[str] = None
+    profile_id: Optional[int] = None
+    
 class UserResponse(UserBase):
     id: int
     profile: ProfileResponse

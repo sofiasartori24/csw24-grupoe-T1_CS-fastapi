@@ -1,20 +1,36 @@
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 from app.repositories.room import RoomRepository
-from app.schemas.room import RoomCreate
+from app.schemas.room import RoomCreate, RoomUpdate
+
 
 class RoomService:
-    @staticmethod
-    def get_all_rooms(db: Session):
-        return RoomRepository.get_all(db)
+    def __init__(self, db: Session):
+        self.repository = RoomRepository(db)
 
-    @staticmethod
-    def get_room_by_id(db: Session, room_id: int):
-        return RoomRepository.get_by_id(db, room_id)
+    def get_all_rooms(self):
+        rooms = self.repository.get_all()
+        if not rooms:
+            raise HTTPException(status_code=404, detail="No rooms found")
+        return rooms
 
-    @staticmethod
-    def create_room(db: Session, room: RoomCreate):
-        return RoomRepository.create(db, room)
+    def get_room_by_id(self, room_id: int):
+        room = self.repository.get_by_id(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        return room
 
-    @staticmethod
-    def delete_room(db: Session, room_id: int):
-        return RoomRepository.delete(db, room_id)
+    def create_room(self, room: RoomCreate):
+        return self.repository.create(room)
+
+    def update_room(self, room_id: int, room_update: RoomUpdate):
+        updated_room = self.repository.update(room_id, room_update)
+        if not updated_room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        return updated_room
+
+    def delete_room(self, room_id: int):
+        deleted_room = self.repository.delete(room_id)
+        if not deleted_room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        return {"message": "Room deleted successfully"}

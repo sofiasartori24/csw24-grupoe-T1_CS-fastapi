@@ -1,28 +1,36 @@
 from sqlalchemy.orm import Session
 from app.models.discipline import Discipline
-from app.schemas.discipline import DisciplineCreate
+from app.schemas.discipline import DisciplineCreate, DisciplineUpdate
 
 class DisciplineRepository:
-    @staticmethod
-    def get_all(db: Session):
-        return db.query(Discipline).all()
+    def __init__(self, db: Session):
+        self.db = db
 
-    @staticmethod
-    def get_by_id(db: Session, discipline_id: int):
-        return db.query(Discipline).filter(Discipline.id == discipline_id).first()
+    def get_all(self):
+        return self.db.query(Discipline).all()
 
-    @staticmethod
-    def create(db: Session, discipline: DisciplineCreate):
+    def get_by_id(self, discipline_id: int):
+        return self.db.query(Discipline).filter(Discipline.id == discipline_id).first()
+
+    def create(self, discipline: DisciplineCreate):
         db_discipline = Discipline(**discipline.dict())
-        db.add(db_discipline)
-        db.commit()
-        db.refresh(db_discipline)
+        self.db.add(db_discipline)
+        self.db.commit()
+        self.db.refresh(db_discipline)
         return db_discipline
 
-    @staticmethod
-    def delete(db: Session, discipline_id: int):
-        db_discipline = db.query(Discipline).filter(Discipline.id == discipline_id).first()
+    def update(self, discipline_id: int, discipline_update: DisciplineUpdate):
+        db_discipline = self.db.query(Discipline).filter(Discipline.id == discipline_id).first()
         if db_discipline:
-            db.delete(db_discipline)
-            db.commit()
+            for key, value in discipline_update.dict(exclude_unset=True).items():
+                setattr(db_discipline, key, value)
+            self.db.commit()
+            self.db.refresh(db_discipline)
+        return db_discipline
+
+    def delete(self, discipline_id: int):
+        db_discipline = self.db.query(Discipline).filter(Discipline.id == discipline_id).first()
+        if db_discipline:
+            self.db.delete(db_discipline)
+            self.db.commit()
         return db_discipline

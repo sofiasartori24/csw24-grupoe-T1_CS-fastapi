@@ -1,28 +1,39 @@
 from sqlalchemy.orm import Session
 from app.models.building import Building
-from app.schemas.building import BuildingCreate
+from app.schemas.building import BuildingCreate, BuildingUpdate
 
 class BuildingRepository:
-    @staticmethod
-    def get_all(db: Session):
-        return db.query(Building).all()
+    def __init__(self, db: Session):
+        self.db = db
 
-    @staticmethod
-    def get_by_id(db: Session, building_id: int):
-        return db.query(Building).filter(Building.id == building_id).first()
+    def get_all(self):
+        return self.db.query(Building).all()
 
-    @staticmethod
-    def create(db: Session, building: BuildingCreate):
+    def get_by_id(self, building_id: int):
+        return self.db.query(Building).filter(Building.id == building_id).first()
+
+    def create(self, building: BuildingCreate):
         db_building = Building(**building.dict())
-        db.add(db_building)
-        db.commit()
-        db.refresh(db_building)
+        self.db.add(db_building)
+        self.db.commit()
+        self.db.refresh(db_building)
         return db_building
 
-    @staticmethod
-    def delete(db: Session, building_id: int):
-        db_building = db.query(Building).filter(Building.id == building_id).first()
+    def update(self, building_id: int, building_data: BuildingUpdate):
+        db_building = self.get_by_id(building_id)
+        if not db_building:
+            return None
+
+        for field, value in building_data.dict(exclude_unset=True).items():
+            setattr(db_building, field, value)
+
+        self.db.commit()
+        self.db.refresh(db_building)
+        return db_building
+
+    def delete(self, building_id: int):
+        db_building = self.get_by_id(building_id)
         if db_building:
-            db.delete(db_building)
-            db.commit()
+            self.db.delete(db_building)
+            self.db.commit()
         return db_building

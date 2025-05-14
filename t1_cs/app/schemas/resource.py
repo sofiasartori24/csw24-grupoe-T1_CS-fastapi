@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, ConfigDict
 from app.schemas.resource_type import ResourceTypeResponse
 from enum import Enum
@@ -21,7 +22,9 @@ class ResourceResponse(ResourceBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-class ResourceUpdate(ResourceBase):
+class ResourceUpdate(BaseModel):
     resource_type_id: int
+    description: Optional[str] = None  
+    status: Optional[ResourceStatus] = None 
 
     model_config = ConfigDict(from_attributes=True)

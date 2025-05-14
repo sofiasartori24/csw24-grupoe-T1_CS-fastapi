@@ -8,10 +8,13 @@ class CurriculumBase(BaseModel):
     end_date: date | None = None
 
 class CurriculumCreate(CurriculumBase):
-    discipline_ids: list[int]  # List of discipline IDs to associate
+    discipline_ids: list[int]  
+
+class CurriculumUpdate(CurriculumBase):
+    discipline_ids: list[int] | None = None  
 
 class CurriculumResponse(CurriculumBase):
     id: int
-    disciplines: list[DisciplineResponse]  # List of associated disciplines
+    disciplines: list[DisciplineResponse]  
 
     model_config = ConfigDict(from_attributes=True)

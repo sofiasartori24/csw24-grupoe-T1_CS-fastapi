@@ -8,6 +8,10 @@ class EvaluationBase(BaseModel):
 
 class EvaluationCreate(EvaluationBase):
     class_id: int
+    
+class EvaluationUpdate(EvaluationBase):
+    statement: str | None = None
+    type: str | None = None
 
 class EvaluationResponse(EvaluationBase):
     id: int

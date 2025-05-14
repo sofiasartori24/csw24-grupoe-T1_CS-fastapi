@@ -1,26 +1,35 @@
 from sqlalchemy.orm import Session
 from app.repositories.resource import ResourceRepository
-from app.schemas.resource import ResourceCreate
-from app.schemas.resource import ResourceUpdate
-
+from app.schemas.resource import ResourceCreate, ResourceUpdate
+from fastapi import HTTPException
 
 class ResourceService:
-    @staticmethod
-    def get_all_resources(db: Session):
-        return ResourceRepository.get_all(db)
+    def __init__(self, db: Session):
+        self.repository = ResourceRepository(db)
 
-    @staticmethod
-    def get_resource_by_id(db: Session, resource_id: int):
-        return ResourceRepository.get_by_id(db, resource_id)
+    def get_all_resources(self):
+        resources = self.repository.get_all()
+        if not resources:
+            raise HTTPException(status_code=404, detail="No resources found")
+        return resources
 
-    @staticmethod
-    def create_resource(db: Session, resource: ResourceCreate):
-        return ResourceRepository.create(db, resource)
+    def get_resource_by_id(self, resource_id: int):
+        resource = self.repository.get_by_id(resource_id)
+        if not resource:
+            raise HTTPException(status_code=404, detail="Resource not found")
+        return resource
 
-    @staticmethod
-    def delete_resource(db: Session, resource_id: int):
-        return ResourceRepository.delete(db, resource_id)
+    def create_resource(self, resource_data: ResourceCreate):
+        return self.repository.create(resource_data)
 
-    @staticmethod
-    def update_resource(db: Session, resource_id: int, resource_data: ResourceUpdate):
-        return ResourceRepository.update(db, resource_id, resource_data)
+    def delete_resource(self, resource_id: int):
+        resource = self.repository.delete(resource_id)
+        if not resource:
+            raise HTTPException(status_code=404, detail="Resource not found")
+        return {"message": "Resource deleted successfully"}
+
+    def update_resource(self, resource_id: int, resource_data: ResourceUpdate):
+        resource = self.repository.update(resource_id, resource_data)
+        if not resource:
+            raise HTTPException(status_code=404, detail="Resource not found")
+        return resource

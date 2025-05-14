@@ -1,33 +1,48 @@
 from sqlalchemy.orm import Session
 from app.models.user import User
-from app.schemas.user import UserCreate
+from app.models.profile import Profile
+from app.schemas.user import UserCreate, UserUpdate
 
 class UserRepository:
-    @staticmethod
-    def get_all(db: Session):
-        return db.query(User).all()
+    def __init__(self, db: Session):
+        self.db = db
 
-    @staticmethod
-    def get_by_id(db: Session, user_id: int):
-        return db.query(User).filter(User.id == user_id).first()
+    def get_all(self):
+        return self.db.query(User).all()
 
-    @staticmethod
-    def create(db: Session, user: UserCreate):
-        # check if profile exists
-        profile = db.query(User.profile.property.mapper.class_).get(user.profile_id)
+    def get_by_id(self, user_id: int):
+        return self.db.query(User).filter(User.id == user_id).first()
+
+    def create(self, user: UserCreate):
+        profile = self.db.query(Profile).get(user.profile_id)
         if not profile:
             raise ValueError(f"Profile with id {user.profile_id} does not exist")
 
         db_user = User(**user.dict())
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
+        self.db.add(db_user)
+        self.db.commit()
+        self.db.refresh(db_user)
         return db_user
 
-    @staticmethod
-    def delete(db: Session, user_id: int):
-        db_user = db.query(User).filter(User.id == user_id).first()
+    def update(self, user_id: int, user_data: UserUpdate):
+        db_user = self.db.query(User).filter(User.id == user_id).first()
+        if not db_user:
+            return None
+
+        profile = self.db.query(Profile).get(user_data.profile_id)
+        if not profile:
+            raise ValueError(f"Profile with id {user_data.profile_id} does not exist")
+
+        for key, value in user_data.dict().items():
+            setattr(db_user, key, value)
+
+        self.db.commit()
+        self.db.refresh(db_user)
+        return db_user
+
+    def delete(self, user_id: int):
+        db_user = self.db.query(User).filter(User.id == user_id).first()
         if db_user:
-            db.delete(db_user)
-            db.commit()
+            self.db.delete(db_user)
+            self.db.commit()
         return db_user

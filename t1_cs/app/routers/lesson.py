@@ -2,11 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.lesson import LessonService
-from app.schemas.lesson import LessonCreate, LessonResponse
+from app.schemas.lesson import LessonCreate, LessonResponse, LessonUpdate
 from app.dependencies.permissions import require_professor
-
-
-router = APIRouter(prefix="/lessons", tags=["Lessons"])
 
 def get_db():
     db = SessionLocal()
@@ -15,24 +12,33 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/", response_model=list[LessonResponse])
-def get_lessons(db: Session = Depends(get_db)):
-    return LessonService.get_all_lessons(db)
+class LessonRouter:
+    def __init__(self):
+        self.router = APIRouter(prefix="/lessons", tags=["Lessons"])
+        self.add_routes()
 
-@router.get("/{lesson_id}", response_model=LessonResponse)
-def get_lesson(lesson_id: int, db: Session = Depends(get_db)):
-    lesson = LessonService.get_lesson_by_id(db, lesson_id)
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
-    return lesson
+    def add_routes(self):
+        @self.router.get("/", response_model=list[LessonResponse])
+        def get_lessons(db: Session = Depends(get_db)):
+            service = LessonService(db)
+            return service.get_all_lessons()
 
-@router.post("/", response_model=LessonResponse, dependencies=[Depends(require_professor)])
-def create_lesson(lesson: LessonCreate, db: Session = Depends(get_db)):
-    return LessonService.create_lesson(db, lesson)
+        @self.router.get("/{lesson_id}", response_model=LessonResponse)
+        def get_lesson(lesson_id: int, db: Session = Depends(get_db)):
+            service = LessonService(db)
+            return service.get_lesson_by_id(lesson_id)
 
-@router.delete("/{lesson_id}", dependencies=[Depends(require_professor)])
-def delete_lesson(lesson_id: int, db: Session = Depends(get_db)):
-    lesson = LessonService.delete_lesson(db, lesson_id)
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
-    return {"message": "Lesson deleted successfully"}
+        @self.router.post("/", response_model=LessonResponse)
+        def create_lesson(lesson: LessonCreate, db: Session = Depends(get_db)):
+            service = LessonService(db)
+            return service.create_lesson(lesson)
+        
+        @self.router.put("/{lesson_id}", response_model=LessonResponse)
+        def update_lesson(lesson_id: int, lesson:LessonUpdate, db: Session = Depends(get_db)):
+            service = LessonService(db)
+            return service.update_lesson(lesson_id, lesson)
+
+        @self.router.delete("/{lesson_id}")
+        def delete_lesson(lesson_id: int, db: Session = Depends(get_db)):
+            service = LessonService(db)
+            return service.delete_lesson(lesson_id)

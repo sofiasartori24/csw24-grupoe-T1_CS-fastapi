@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, ConfigDict
 from app.schemas.discipline import DisciplineResponse
 from app.schemas.user import UserResponse
@@ -11,6 +12,13 @@ class ClassBase(BaseModel):
 class ClassCreate(ClassBase):
     discipline_id: int
     professor_id: int
+
+class ClassUpdate(BaseModel):
+    semester: Optional[str] = None
+    schedule: Optional[str] = None
+    vacancies: Optional[int] = None
+    discipline_id: Optional[int] = None
+    professor_id: Optional[int] = None
 
 class ClassResponse(ClassBase):
     id: int

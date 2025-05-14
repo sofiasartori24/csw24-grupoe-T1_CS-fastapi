@@ -1,20 +1,36 @@
 from sqlalchemy.orm import Session
 from app.repositories.lesson import LessonRepository
-from app.schemas.lesson import LessonCreate
+from app.schemas.lesson import LessonCreate, LessonUpdate
+from fastapi import HTTPException
 
 class LessonService:
-    @staticmethod
-    def get_all_lessons(db: Session):
-        return LessonRepository.get_all(db)
+    def __init__(self, db: Session):
+        self.db = db
+        self.repository = LessonRepository(db)
 
-    @staticmethod
-    def get_lesson_by_id(db: Session, lesson_id: int):
-        return LessonRepository.get_by_id(db, lesson_id)
+    def get_all_lessons(self):
+        lessons = self.repository.get_all()
+        if not lessons:
+            raise HTTPException(status_code=404, detail="No lessons found")
+        return lessons
 
-    @staticmethod
-    def create_lesson(db: Session, lesson: LessonCreate):
-        return LessonRepository.create(db, lesson)
+    def get_lesson_by_id(self, lesson_id: int):
+        lesson = self.repository.get_by_id(lesson_id)
+        if not lesson:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        return lesson
 
-    @staticmethod
-    def delete_lesson(db: Session, lesson_id: int):
-        return LessonRepository.delete(db, lesson_id)
+    def create_lesson(self, lesson_data: LessonCreate):
+        return self.repository.create(lesson_data)
+
+    def update_lesson(self, lesson_id: int, lesson_update: LessonUpdate):
+        lesson = self.repository.update(lesson_id, lesson_update)
+        if not lesson:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        return lesson
+
+    def delete_lesson(self, lesson_id: int):
+        lesson = self.repository.delete(lesson_id)
+        if not lesson:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        return {"message": "Lesson deleted successfully"}

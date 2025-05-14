@@ -1,20 +1,34 @@
 from sqlalchemy.orm import Session
 from app.repositories.building import BuildingRepository
-from app.schemas.building import BuildingCreate
+from app.schemas.building import BuildingCreate, BuildingUpdate
 
 class BuildingService:
-    @staticmethod
-    def get_all_buildings(db: Session):
-        return BuildingRepository.get_all(db)
+    def __init__(self, db: Session):
+        self.db = db
+        self.repository = BuildingRepository(db)
+    
+    def get_all_buildings(self):
+        return self.repository.get_all()
 
-    @staticmethod
-    def get_building_by_id(db: Session, building_id: int):
-        return BuildingRepository.get_by_id(db, building_id)
+    def get_building_by_id(self, building_id: int):
+        building = self.repository.get_by_id(building_id)
+        if not building:
+            raise ValueError(f"Building with id {building_id} not found")
+        return building
 
-    @staticmethod
-    def create_building(db: Session, building: BuildingCreate):
-        return BuildingRepository.create(db, building)
+    def create_building(self, building: BuildingCreate):
+        return self.repository.create(building)
 
-    @staticmethod
-    def delete_building(db: Session, building_id: int):
-        return BuildingRepository.delete(db, building_id)
+    def update_building(self, building_id: int, building_update: BuildingUpdate):
+        existing_building = self.repository.get_by_id(building_id)
+        if not existing_building:
+            raise ValueError(f"Building with id {building_id} not found")
+        
+        return self.repository.update(building_id, building_update)
+
+    def delete_building(self, building_id: int):
+        existing_building = self.repository.get_by_id(building_id)
+        if not existing_building:
+            raise ValueError(f"Building with id {building_id} not found")
+        
+        return self.repository.delete(building_id)

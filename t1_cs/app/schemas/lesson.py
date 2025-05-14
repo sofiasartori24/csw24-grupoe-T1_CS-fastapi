@@ -13,6 +13,9 @@ class LessonCreate(LessonBase):
     room_id: int
     discipline_id: int
 
+class LessonUpdate(LessonBase):
+    attendance: str | None = None
+
 class LessonResponse(LessonBase):
     id: int
     class_instance: ClassResponse

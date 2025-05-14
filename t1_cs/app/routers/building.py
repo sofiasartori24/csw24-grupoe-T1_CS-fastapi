@@ -2,35 +2,44 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.building import BuildingService
-from app.schemas.building import BuildingCreate, BuildingResponse
+from app.schemas.building import BuildingCreate, BuildingResponse, BuildingUpdate
 
-router = APIRouter(prefix="/buildings", tags=["Buildings"])
+class BuildingRouter:
+    def __init__(self):
+        self.router = APIRouter(prefix="/buildings", tags=["Buildings"])
+        self.add_routes()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    def add_routes(self):
+        @self.router.get("/", response_model=list[BuildingResponse])
+        def get_buildings(db: Session = Depends(self.get_db)):
+            service = BuildingService(db)
+            return service.get_all_buildings()
 
-@router.get("/", response_model=list[BuildingResponse])
-def get_buildings(db: Session = Depends(get_db)):
-    return BuildingService.get_all_buildings(db)
+        @self.router.get("/{building_id}", response_model=BuildingResponse)
+        def get_building(building_id: int, db: Session = Depends(self.get_db)):
+            service = BuildingService(db)
+            building = service.get_building_by_id(building_id)
+            return building
 
-@router.get("/{building_id}", response_model=BuildingResponse)
-def get_building(building_id: int, db: Session = Depends(get_db)):
-    building = BuildingService.get_building_by_id(db, building_id)
-    if not building:
-        raise HTTPException(status_code=404, detail="Building not found")
-    return building
+        @self.router.post("/", response_model=BuildingResponse)
+        def create_building(building: BuildingCreate, db: Session = Depends(self.get_db)):
+            service = BuildingService(db)
+            return service.create_building(building)
 
-@router.post("/", response_model=BuildingResponse)
-def create_building(building: BuildingCreate, db: Session = Depends(get_db)):
-    return BuildingService.create_building(db, building)
+        @self.router.put("/{building_id}", response_model=BuildingResponse)
+        def update_building(building_id: int, building_update: BuildingUpdate, db: Session = Depends(self.get_db)):
+            service = BuildingService(db)
+            return service.update_building(building_id, building_update)
 
-@router.delete("/{building_id}")
-def delete_building(building_id: int, db: Session = Depends(get_db)):
-    building = BuildingService.delete_building(db, building_id)
-    if not building:
-        raise HTTPException(status_code=404, detail="Building not found")
-    return {"message": "Building deleted successfully"}
+        @self.router.delete("/{building_id}")
+        def delete_building(building_id: int, db: Session = Depends(self.get_db)):
+            service = BuildingService(db)
+            service.delete_building(building_id)
+            return {"message": "Building deleted successfully"}
+
+    def get_db(self):
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()

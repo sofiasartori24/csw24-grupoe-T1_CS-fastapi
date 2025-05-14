@@ -1,28 +1,36 @@
 from sqlalchemy.orm import Session
 from app.models.resource_type import ResourceType
-from app.schemas.resource_type import ResourceTypeCreate
+from app.schemas.resource_type import ResourceTypeCreate, ResourceTypeUpdate
 
 class ResourceTypeRepository:
-    @staticmethod
-    def get_all(db: Session):
-        return db.query(ResourceType).all()
+    def __init__(self, db: Session):
+        self.db = db
 
-    @staticmethod
-    def get_by_id(db: Session, resource_type_id: int):
-        return db.query(ResourceType).filter(ResourceType.id == resource_type_id).first()
+    def get_all(self):
+        return self.db.query(ResourceType).all()
 
-    @staticmethod
-    def create(db: Session, resource_type: ResourceTypeCreate):
+    def get_by_id(self, resource_type_id: int):
+        return self.db.query(ResourceType).filter(ResourceType.id == resource_type_id).first()
+
+    def create(self, resource_type: ResourceTypeCreate):
         db_resource_type = ResourceType(**resource_type.dict())
-        db.add(db_resource_type)
-        db.commit()
-        db.refresh(db_resource_type)
+        self.db.add(db_resource_type)
+        self.db.commit()
+        self.db.refresh(db_resource_type)
         return db_resource_type
 
-    @staticmethod
-    def delete(db: Session, resource_type_id: int):
-        db_resource_type = db.query(ResourceType).filter(ResourceType.id == resource_type_id).first()
+    def update(self, resource_type_id: int, resource_type_update: ResourceTypeUpdate):
+        db_resource_type = self.db.query(ResourceType).filter(ResourceType.id == resource_type_id).first()
         if db_resource_type:
-            db.delete(db_resource_type)
-            db.commit()
+            for var, value in resource_type_update.dict(exclude_unset=True).items():
+                setattr(db_resource_type, var, value)
+            self.db.commit()
+            self.db.refresh(db_resource_type)
+        return db_resource_type
+
+    def delete(self, resource_type_id: int):
+        db_resource_type = self.db.query(ResourceType).filter(ResourceType.id == resource_type_id).first()
+        if db_resource_type:
+            self.db.delete(db_resource_type)
+            self.db.commit()
         return db_resource_type

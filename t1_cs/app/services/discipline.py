@@ -1,20 +1,35 @@
 from sqlalchemy.orm import Session
 from app.repositories.discipline import DisciplineRepository
-from app.schemas.discipline import DisciplineCreate
+from app.schemas.discipline import DisciplineCreate, DisciplineUpdate
+from fastapi import HTTPException
 
 class DisciplineService:
-    @staticmethod
-    def get_all_disciplines(db: Session):
-        return DisciplineRepository.get_all(db)
+    def __init__(self, db: Session):
+        self.repository = DisciplineRepository(db)
 
-    @staticmethod
-    def get_discipline_by_id(db: Session, discipline_id: int):
-        return DisciplineRepository.get_by_id(db, discipline_id)
+    def get_all_disciplines(self):
+        disciplines = self.repository.get_all()
+        if not disciplines:
+            raise HTTPException(status_code=404, detail="No disciplines found")
+        return disciplines
 
-    @staticmethod
-    def create_discipline(db: Session, discipline: DisciplineCreate):
-        return DisciplineRepository.create(db, discipline)
+    def get_discipline_by_id(self, discipline_id: int):
+        discipline = self.repository.get_by_id(discipline_id)
+        if not discipline:
+            raise HTTPException(status_code=404, detail="Discipline not found")
+        return discipline
 
-    @staticmethod
-    def delete_discipline(db: Session, discipline_id: int):
-        return DisciplineRepository.delete(db, discipline_id)
+    def create_discipline(self, discipline: DisciplineCreate):
+        return self.repository.create(discipline)
+
+    def update_discipline(self, discipline_id: int, discipline_update: DisciplineUpdate):
+        discipline = self.repository.update(discipline_id, discipline_update)
+        if not discipline:
+            raise HTTPException(status_code=404, detail="Discipline not found")
+        return discipline
+
+    def delete_discipline(self, discipline_id: int):
+        discipline = self.repository.delete(discipline_id)
+        if not discipline:
+            raise HTTPException(status_code=404, detail="Discipline not found")
+        return {"message": "Discipline deleted successfully"}

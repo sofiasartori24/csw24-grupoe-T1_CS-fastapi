@@ -1,20 +1,33 @@
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 from app.repositories.user import UserRepository
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserUpdate
 
 class UserService:
-    @staticmethod
-    def get_all_users(db: Session):
-        return UserRepository.get_all(db)
+    def __init__(self, db: Session):
+        self.db = db
+        self.user_repository = UserRepository(db)
 
-    @staticmethod
-    def get_user_by_id(db: Session, user_id: int):
-        return UserRepository.get_by_id(db, user_id)
+    def get_all_users(self):
+        return self.user_repository.get_all()
 
-    @staticmethod
-    def create_user(db: Session, user: UserCreate):
-        return UserRepository.create(db, user)
+    def get_user_by_id(self, user_id: int):
+        user = self.user_repository.get_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return user
 
-    @staticmethod
-    def delete_user(db: Session, user_id: int):
-        return UserRepository.delete(db, user_id)
+    def create_user(self, user: UserCreate):
+        return self.user_repository.create(user)
+
+    def update_user(self, user_id: int, user_update: UserUpdate):
+        existing_user = self.user_repository.get_by_id(user_id)
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return self.user_repository.update(user_id, user_update)
+
+    def delete_user(self, user_id: int):
+        existing_user = self.user_repository.get_by_id(user_id)
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return self.user_repository.delete(user_id)

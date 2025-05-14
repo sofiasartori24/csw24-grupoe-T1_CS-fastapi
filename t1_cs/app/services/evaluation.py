@@ -1,16 +1,32 @@
 from sqlalchemy.orm import Session
 from app.repositories.evaluation import EvaluationRepository
-from app.schemas.evaluation import EvaluationCreate
+from app.schemas.evaluation import EvaluationCreate, EvaluationUpdate
+from fastapi import HTTPException
 
 class EvaluationService:
-    @staticmethod
-    def get_all_evaluations(db: Session):
-        return EvaluationRepository.get_all(db)
+    def __init__(self, db: Session):
+        self.repository = EvaluationRepository(db)
 
-    @staticmethod
-    def get_evaluation_by_id(db: Session, evaluation_id: int):
-        return EvaluationRepository.get_by_id(db, evaluation_id)
+    def get_all_evaluations(self):
+        return self.repository.get_all()
 
-    @staticmethod
-    def create_evaluation(db: Session, evaluation: EvaluationCreate):
-        return EvaluationRepository.create(db, evaluation)
+    def get_evaluation_by_id(self, evaluation_id: int):
+        evaluation = self.repository.get_by_id(evaluation_id)
+        if not evaluation:
+            raise HTTPException(status_code=404, detail="Evaluation not found")
+        return evaluation
+
+    def create_evaluation(self, evaluation: EvaluationCreate):
+        return self.repository.create(evaluation)
+
+    def update_evaluation(self, evaluation_id: int, evaluation_update: EvaluationUpdate):
+        evaluation = self.repository.update(evaluation_id, evaluation_update)
+        if not evaluation:
+            raise HTTPException(status_code=404, detail="Evaluation not found")
+        return evaluation
+
+    def delete_evaluation(self, evaluation_id: int):
+        evaluation = self.repository.delete(evaluation_id)
+        if not evaluation:
+            raise HTTPException(status_code=404, detail="Evaluation not found")
+        return {"message": "Evaluation deleted successfully"}

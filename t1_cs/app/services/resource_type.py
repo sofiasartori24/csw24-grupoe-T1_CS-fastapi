@@ -1,20 +1,33 @@
 from sqlalchemy.orm import Session
 from app.repositories.resource_type import ResourceTypeRepository
-from app.schemas.resource_type import ResourceTypeCreate
+from app.schemas.resource_type import ResourceTypeCreate, ResourceTypeUpdate
+from fastapi import HTTPException
 
 class ResourceTypeService:
-    @staticmethod
-    def get_all_resource_types(db: Session):
-        return ResourceTypeRepository.get_all(db)
+    def __init__(self, db: Session):
+        self.db = db
+        self.resource_type_repository = ResourceTypeRepository(db)
 
-    @staticmethod
-    def get_resource_type_by_id(db: Session, resource_type_id: int):
-        return ResourceTypeRepository.get_by_id(db, resource_type_id)
+    def get_all_resource_types(self):
+        return self.resource_type_repository.get_all()
 
-    @staticmethod
-    def create_resource_type(db: Session, resource_type: ResourceTypeCreate):
-        return ResourceTypeRepository.create(db, resource_type)
+    def get_resource_type_by_id(self, resource_type_id: int):
+        resource_type = self.resource_type_repository.get_by_id(resource_type_id)
+        if not resource_type:
+            raise HTTPException(status_code=404, detail="ResourceType not found")
+        return resource_type
 
-    @staticmethod
-    def delete_resource_type(db: Session, resource_type_id: int):
-        return ResourceTypeRepository.delete(db, resource_type_id)
+    def create_resource_type(self, resource_type: ResourceTypeCreate):
+        return self.resource_type_repository.create(resource_type)
+
+    def update_resource_type(self, resource_type_id: int, resource_type_update: ResourceTypeUpdate):
+        resource_type = self.resource_type_repository.update(resource_type_id, resource_type_update)
+        if not resource_type:
+            raise HTTPException(status_code=404, detail="ResourceType not found")
+        return {"message": "ResourceType uptated successfully"}
+
+    def delete_resource_type(self, resource_type_id: int):
+        resource_type = self.resource_type_repository.delete(resource_type_id)
+        if not resource_type:
+            raise HTTPException(status_code=404, detail="ResourceType not found")
+        return {"message": "ResourceType deleted successfully"}
