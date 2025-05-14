@@ -33,8 +33,7 @@ class CurriculumRepository:
     def update(self, curriculum_id: int, curriculum_update: CurriculumUpdate):
         db_curriculum = self.db.query(Curriculum).filter(Curriculum.id == curriculum_id).first()
         if not db_curriculum:
-            raise HTTPException(status_code=404, detail="Curriculum not found")
-
+            return None
         # Update the fields
         if curriculum_update.course_name:
             db_curriculum.course_name = curriculum_update.course_name

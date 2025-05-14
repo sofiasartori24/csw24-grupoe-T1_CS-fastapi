@@ -4,6 +4,7 @@ from app.database import SessionLocal
 from app.services.resource import ResourceService
 from app.schemas.resource import ResourceCreate, ResourceResponse, ResourceUpdate
 from app.dependencies.permissions import require_admin
+from app.services.user import UserService
 
 def get_db():
     db = SessionLocal()
@@ -31,17 +32,32 @@ class ResourceRouter:
                 raise HTTPException(status_code=404, detail="Resource not found")
             return resource
 
-        @self.router.post("/", response_model=ResourceResponse)
-        def create_resource(resource: ResourceCreate, db: Session = Depends(get_db)):
+        @self.router.post("/{user_id}", response_model=ResourceResponse)
+        def create_resource(user_id: int, resource: ResourceCreate, db: Session = Depends(get_db)):
+            user_service = UserService(db)
+            user = user_service.get_user_by_id(user_id)
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            require_admin(user)
             service = ResourceService(db)
             return service.create_resource(resource)
 
-        @self.router.put("/{resource_id}", response_model=ResourceResponse)
-        def update_resource(resource_id: int, resource: ResourceUpdate, db: Session = Depends(get_db), user = Depends(require_admin)):
+        @self.router.put("/{resource_id}/{user_id}", response_model=ResourceResponse)
+        def update_resource(resource_id: int, user_id: int, resource: ResourceUpdate, db: Session = Depends(get_db), user = Depends(require_admin)):
+            user_service = UserService(db)
+            user = user_service.get_user_by_id(user_id)
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            require_admin(user)
             service = ResourceService(db)
             return service.update_resource(resource_id, resource)
 
-        @self.router.delete("/{resource_id}", response_model=dict)
-        def delete_resource(resource_id: int, db: Session = Depends(get_db), user = Depends(require_admin)):
+        @self.router.delete("/{resource_id}/{user_id}", response_model=dict)
+        def delete_resource(resource_id: int, user_id: int, db: Session = Depends(get_db), user = Depends(require_admin)):
+            user_service = UserService(db)
+            user = user_service.get_user_by_id(user_id)
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            require_admin(user)
             service = ResourceService(db)
             return service.delete_resource(resource_id)
