@@ -12,7 +12,7 @@ class Resource(Base):
     __tablename__ = "resources"
 
     id = Column(Integer, primary_key=True, index=True)
-    description = Column(String, nullable=False)
+    description = Column(String(255), nullable=False)
     status = Column(Enum(ResourceStatus), default=ResourceStatus.available, nullable=False)
 
     # Relationships

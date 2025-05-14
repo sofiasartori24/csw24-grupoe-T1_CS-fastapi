@@ -7,7 +7,7 @@ class Lesson(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False)
-    attendance = Column(String, nullable=True)  
+    attendance = Column(String(255), nullable=True)  
 
     # Relationships
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)

@@ -14,7 +14,7 @@ class Curriculum(Base):
     __tablename__ = "curriculums"
 
     id = Column(Integer, primary_key=True, index=True)
-    course_name = Column(String, nullable=False)
+    course_name = Column(String(255), nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
 

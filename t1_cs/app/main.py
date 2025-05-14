@@ -1,4 +1,4 @@
-from app.database import init_db
+from app.database import SessionLocal, init_db
 from fastapi import FastAPI
 from app.routers.reservation import ReservationRouter
 from app.routers.profile import ProfileRouter
@@ -12,11 +12,17 @@ from app.routers.room import RoomRouter
 from app.routers.class_router import ClassRouter
 from app.routers.lesson import LessonRouter
 from app.routers.resource import ResourceRouter
+from app.script import populate_profiles_and_user
 
 app = FastAPI()
 
 init_db()
-
+db = SessionLocal()
+try:
+    populate_profiles_and_user(db)
+finally:
+    db.close()
+        
 reservation = ReservationRouter()
 app.include_router(reservation.router)
 

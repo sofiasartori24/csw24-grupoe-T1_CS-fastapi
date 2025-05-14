@@ -7,8 +7,8 @@ class Evaluation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False)
-    statement = Column(String, nullable=False)
-    type = Column(String, nullable=False)
+    statement = Column(String(255), nullable=False)
+    type = Column(String(255), nullable=False)
 
     # Relationships
     class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)

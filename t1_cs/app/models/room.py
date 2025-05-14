@@ -16,7 +16,7 @@ class Room(Base):
     id = Column(Integer, primary_key=True, index=True)
     room_number = Column(Integer, nullable=False)
     capacity = Column(Integer, nullable=False)
-    floor = Column(String, nullable=False)
+    floor = Column(String(255), nullable=False)
 
     # Relationships
     building_id = Column(Integer, ForeignKey("buildings.id"), nullable=False)

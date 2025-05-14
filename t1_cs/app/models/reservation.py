@@ -6,7 +6,7 @@ class Reservation(Base):
     __tablename__ = "reservations"
 
     id = Column(Integer, primary_key=True, index=True)
-    observation = Column(String, nullable=True)
+    observation = Column(String(255), nullable=True)
 
     # Relationships
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)

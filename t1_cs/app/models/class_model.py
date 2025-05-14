@@ -6,8 +6,8 @@ class Class(Base):
     __tablename__ = "classes"
 
     id = Column(Integer, primary_key=True, index=True)
-    semester = Column(String, nullable=False)
-    schedule = Column(String, nullable=False)
+    semester = Column(String(255), nullable=False)
+    schedule = Column(String(255), nullable=False)
     vacancies = Column(Integer, nullable=False)
 
     # Relationships

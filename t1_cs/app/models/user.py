@@ -6,10 +6,10 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, nullable=False)
-    name = Column(String, nullable=False)
+    email = Column(String(255), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
     birth_date = Column(Date, nullable=False)
-    gender = Column(String, nullable=False)
+    gender = Column(String(255), nullable=False)
     profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=False)
 
     profile = relationship("Profile", back_populates="users")
