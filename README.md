@@ -116,11 +116,11 @@ docker-compose up --build
 
 ### Permissões por Perfil
 
-| Perfil        | Permissões                                 |
-| ------------- | ------------------------------------------ |
-| Professor     | Editar aulas e reservas                    |
-| Coordenador   | Editar turmas e disciplinas                |
-| Administrador | Editar usuários, prédios, salas e recursos |
+| Perfil                 | Permissões                                 |
+| -----------------------| ------------------------------------------ |
+| Professor (id = 2)     | Editar aulas e reservas                    |
+| Coordenador  (id = 3)  | Editar turmas e disciplinas                |
+| Administrador (id = 1) | Editar usuários, prédios, salas e recursos |
 
 ---
 
