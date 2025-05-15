@@ -62,6 +62,8 @@ app/
 │   └── resource_service.py
 ├── routers/
 │   └── resource.py
+├── dependencies/
+    └── permissions.py
 ```
 
 ### Camadas
@@ -71,6 +73,7 @@ app/
 * `repositories/`: Acesso ao banco por entidade
 * `services/`: Regras de negócio (ex: validação de reservas)
 * `routers/`: Endpoints da API REST
+* 'dependencies/': Valida permissões de acesso
 
 ---
 
@@ -78,7 +81,7 @@ app/
 
 * **Framework**: FastAPI
 * **Linguagem**: Python
-* **Banco de Dados**: SQLite
+* **Banco de Dados**: MySQL
 * **ORM**: SQLAlchemy
 * **Documentação**: Swagger UI
 * **Empacotamento**: Docker
@@ -95,17 +98,7 @@ cd t1_cs
 docker-compose up --build
 ```
 
-2. **(Opcional) Popular o banco com dados de teste**:
-
-   * Vá até a pasta `script_cs_test/` e execute o notebook de inserção
-   * Instale a lib `requests` se necessário:
-
-```bash
-pip install requests
-```
-    * Obs: Caso o banco já esteja populado pode ser que o script falhe
-
-3. **Acesse a documentação da API**:
+2. **Acesse a documentação da API**:
    👉 [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
