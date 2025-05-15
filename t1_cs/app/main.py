@@ -12,7 +12,7 @@ from app.routers.room import RoomRouter
 from app.routers.class_router import ClassRouter
 from app.routers.lesson import LessonRouter
 from app.routers.resource import ResourceRouter
-from app.script import populate_profiles_and_user
+from app.script import populate_profiles_and_user, populate_all
 
 app = FastAPI()
 
@@ -20,6 +20,8 @@ init_db()
 db = SessionLocal()
 try:
     populate_profiles_and_user(db)
+    populate_all(db)
+    
 finally:
     db.close()
         
