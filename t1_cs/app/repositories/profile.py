@@ -3,36 +3,36 @@ from app.models.profile import Profile
 from app.schemas.profile import ProfileCreate
 
 class ProfileRepository:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self):
+        pass
 
-    def get_all(self):
-        return self.db.query(Profile).all()
+    def get_all(self, db: Session):
+        return db.query(Profile).all()
 
-    def get_by_id(self, profile_id: int):
-        return self.db.query(Profile).filter(Profile.id == profile_id).first()
+    def get_by_id(self, db: Session, profile_id: int):
+        return db.query(Profile).filter(Profile.id == profile_id).first()
 
-    def create(self, profile_data: ProfileCreate):
+    def create(self, db: Session, profile_data: ProfileCreate):
         db_profile = Profile(**profile_data.dict())
-        self.db.add(db_profile)
-        self.db.commit()
-        self.db.refresh(db_profile)
+        db.add(db_profile)
+        db.commit()
+        db.refresh(db_profile)
         return db_profile
 
-    def update(self, profile_id: int, profile_data: ProfileCreate):
-        profile = self.get_by_id(profile_id)
+    def update(self, db: Session, profile_id: int, profile_data: ProfileCreate):
+        profile = self.get_by_id(db, profile_id)
         if not profile:
             return None
         for key, value in profile_data.dict(exclude_unset=True).items():
             setattr(profile, key, value)
-        self.db.commit()
-        self.db.refresh(profile)
+        db.commit()
+        db.refresh(profile)
         return profile
 
-    def delete(self, profile_id: int):
-        profile = self.get_by_id(profile_id)
+    def delete(self, db: Session, profile_id: int):
+        profile = self.get_by_id(db, profile_id)
         if not profile:
             return False
-        self.db.delete(profile)
-        self.db.commit()
+        db.delete(profile)
+        db.commit()
         return True

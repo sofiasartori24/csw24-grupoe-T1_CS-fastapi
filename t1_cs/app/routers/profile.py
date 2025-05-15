@@ -18,44 +18,40 @@ class ProfileRouter:
     def __init__(self):
         self.router = APIRouter(prefix="/profiles", tags=["Profiles"])
         self.add_routes()
+        self.service = ProfileService()
 
     def add_routes(self):
         @self.router.get("/", response_model=list[ProfileResponse])
         def get_profiles(db: Session = Depends(get_db)):
-            service = ProfileService(db)
-            return service.get_all_profiles()
+            return self.service.get_all_profiles(db)
 
         @self.router.get("/{profile_id}", response_model=ProfileResponse)
         def get_profile(profile_id: int, db: Session = Depends(get_db)):
-            service = ProfileService(db)
-            return service.get_profile_by_id(profile_id)
+            return self.service.get_profile_by_id(db, profile_id)
 
         @self.router.post("/{user_id}", response_model=ProfileResponse)
         def create_profile(user_id: int, profile: ProfileCreate, db: Session = Depends(get_db)):
-            user_service = UserService(db)
-            user = user_service.get_user_by_id(user_id)
+            user_service = UserService()
+            user = user_service.get_user_by_id(db, user_id)
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
             require_admin(user)
-            service = ProfileService(db)
-            return service.create_profile(profile)
+            return self.service.create_profile(db, profile)
 
         @self.router.put("/{profile_id}/{user_id}", response_model=ProfileResponse)
         def update_profile(profile_id: int, user_id: int,  profile_update: ProfileCreate, db: Session = Depends(get_db)):
-            user_service = UserService(db)
-            user = user_service.get_user_by_id(user_id)
+            user_service = UserService()
+            user = user_service.get_user_by_id(db, user_id)
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
             require_admin(user)
-            service = ProfileService(db)
-            return service.update_profile(profile_id, profile_update)
+            return self.service.update_profile(db, profile_id, profile_update)
 
         @self.router.delete("/{profile_id}/{user_id}", status_code=204)
         def delete_profile(profile_id: int, user_id: int, db: Session = Depends(get_db)):
-            user_service = UserService(db)
-            user = user_service.get_user_by_id(user_id)
+            user_service = UserService()
+            user = user_service.get_user_by_id(db, user_id)
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
             require_admin(user)
-            service = ProfileService(db)
-            return service.delete_profile(profile_id)
+            return self.service.delete_profile(db, profile_id)

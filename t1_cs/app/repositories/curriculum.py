@@ -5,16 +5,16 @@ from app.schemas.curriculum import CurriculumCreate, CurriculumUpdate
 from fastapi import HTTPException
 
 class CurriculumRepository:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self):
+        pass
 
-    def get_all(self):
-        return self.db.query(Curriculum).all()
+    def get_all(self, db: Session):
+        return db.query(Curriculum).all()
 
-    def get_by_id(self, curriculum_id: int):
-        return self.db.query(Curriculum).filter(Curriculum.id == curriculum_id).first()
+    def get_by_id(self, db: Session, curriculum_id: int):
+        return db.query(Curriculum).filter(Curriculum.id == curriculum_id).first()
 
-    def create(self, curriculum: CurriculumCreate):
+    def create(self, db: Session, curriculum: CurriculumCreate):
         # Create new Curriculum
         db_curriculum = Curriculum(
             course_name=curriculum.course_name,
@@ -25,13 +25,13 @@ class CurriculumRepository:
         disciplines = self.db.query(Discipline).filter(Discipline.id.in_(curriculum.discipline_ids)).all()
         db_curriculum.disciplines = disciplines
 
-        self.db.add(db_curriculum)
-        self.db.commit()
-        self.db.refresh(db_curriculum)
+        db.add(db_curriculum)
+        db.commit()
+        db.refresh(db_curriculum)
         return db_curriculum
 
-    def update(self, curriculum_id: int, curriculum_update: CurriculumUpdate):
-        db_curriculum = self.db.query(Curriculum).filter(Curriculum.id == curriculum_id).first()
+    def update(self, db: Session, curriculum_id: int, curriculum_update: CurriculumUpdate):
+        db_curriculum = db.query(Curriculum).filter(Curriculum.id == curriculum_id).first()
         if not db_curriculum:
             return None
         # Update the fields
@@ -47,13 +47,13 @@ class CurriculumRepository:
             disciplines = self.db.query(Discipline).filter(Discipline.id.in_(curriculum_update.discipline_ids)).all()
             db_curriculum.disciplines = disciplines
 
-        self.db.commit()
-        self.db.refresh(db_curriculum)
+        db.commit()
+        db.refresh(db_curriculum)
         return db_curriculum
 
-    def delete(self, curriculum_id: int):
-        db_curriculum = self.db.query(Curriculum).filter(Curriculum.id == curriculum_id).first()
+    def delete(self, db: Session, curriculum_id: int):
+        db_curriculum = db.query(Curriculum).filter(Curriculum.id == curriculum_id).first()
         if db_curriculum:
-            self.db.delete(db_curriculum)
-            self.db.commit()
+            db.delete(db_curriculum)
+            db.commit()
         return db_curriculum
