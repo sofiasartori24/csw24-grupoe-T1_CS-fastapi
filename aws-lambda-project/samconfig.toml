@@ -1,0 +1,9 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "MinhaApiSAM"
+resolve_s3 = true
+s3_prefix = "MinhaApiSAM"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "RdsEndpointParameter=\"meu-db-instance.ck7jkkrszwda.us-east-1.rds.amazonaws.com\""
+image_repositories = []
