@@ -181,3 +181,7 @@ cython_debug/
 # VS Code / Visual Studio local settings
 .vs/
 .vscode/
+
+#terraform
+terraform/.terraform/
+aws.env
