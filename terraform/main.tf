@@ -28,7 +28,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   role             = "arn:aws:iam::030764292549:role/LabRole"
-  handler          = "lambda_handler.handler"
+  handler          = "lambda_handler.lambda_handler"  # Explicitly use lambda_handler.py's lambda_handler function
   runtime          = var.lambda_runtime
   memory_size      = var.lambda_memory_size
   timeout          = var.lambda_timeout
@@ -42,6 +42,13 @@ resource "aws_lambda_function" "fastapi_lambda" {
       # Add debug environment variables
       DEBUG       = "true"
       LOG_LEVEL   = "DEBUG"
+      # Add API configuration
+      API_VERSION = "1.0.0"
+      ENVIRONMENT = "production"
+      # Add connection pool settings
+      POOL_SIZE   = "5"
+      MAX_OVERFLOW = "10"
+      POOL_RECYCLE = "300"
     }
   }
   
