@@ -2,24 +2,22 @@
 
 This directory contains Terraform configuration for deploying the FastAPI application to AWS. The infrastructure includes:
 
-- VPC with private subnets
-- RDS MySQL database
-- Lambda function with VPC access
-- API Gateway
-- IAM roles and security groups
-- CloudWatch logs
+- Lambda function with VPC access to an existing RDS database
+- API Gateway for HTTP endpoints
+- Security groups for proper network access
+- CloudWatch logs for monitoring
 
 ## Architecture
 
 The architecture follows AWS best practices:
 
 1. **VPC and Networking**:
-   - The application runs in a VPC with private subnets
+   - The application runs in an existing VPC with private subnets
    - Security groups control access between components
 
 2. **Database**:
-   - RDS MySQL instance in private subnets
-   - Security group allows access only from Lambda
+   - Uses an existing RDS MySQL instance
+   - Security group rules allow access only from Lambda
 
 3. **Application**:
    - Lambda function with VPC access to the database
@@ -27,7 +25,7 @@ The architecture follows AWS best practices:
    - CloudWatch logs for monitoring
 
 4. **Security**:
-   - IAM roles with least privilege
+   - Uses existing IAM roles with appropriate permissions
    - Security groups with restricted access
    - Environment variables for configuration
 
@@ -36,6 +34,7 @@ The architecture follows AWS best practices:
 - AWS CLI configured with appropriate credentials
 - Terraform v1.0 or later
 - Existing VPC with private subnets
+- Existing RDS MySQL instance
 
 ## Configuration
 
@@ -75,33 +74,33 @@ terraform destroy
 
 ## Important Notes
 
-- The RDS instance is configured with deletion protection by default. Set `db_deletion_protection = false` in `terraform.tfvars` to allow deletion.
-- The Lambda function is configured with VPC access to connect to the RDS instance. This requires the Lambda function to have the appropriate IAM permissions.
-- The API Gateway is configured with CORS to allow cross-origin requests.
-- CloudWatch logs are configured to retain logs for 14 days by default.
+- This configuration uses existing resources (VPC, subnets, RDS, IAM role) rather than creating new ones
+- The Lambda function is configured with VPC access to connect to the RDS instance
+- The API Gateway is configured with CORS to allow cross-origin requests
+- CloudWatch logs are configured to retain logs for 14 days by default
 
-## Improvements
+## Improvements Made
 
 The following improvements have been made to the previous configuration:
 
 1. **VPC Configuration**:
-   - Properly configured VPC access for Lambda
-   - Used variables for VPC and subnet IDs
+   - Properly configured VPC access for Lambda using variables
+   - Used subnet IDs from variables for better flexibility
 
-2. **RDS Configuration**:
-   - Created a new RDS instance with proper configuration
-   - Added security group for RDS with restricted access
+2. **Security Group Configuration**:
+   - Created a dedicated security group for Lambda
+   - Added a security group rule to allow Lambda to access RDS
 
 3. **Lambda Configuration**:
-   - Created IAM role with appropriate permissions
-   - Added VPC configuration for Lambda
-   - Added environment variables for configuration
+   - Used environment variables for configuration
+   - Added proper VPC configuration for database access
+   - Configured CloudWatch logs with retention policy
 
-4. **Security**:
-   - Added proper IAM roles and policies
-   - Restricted security group access
-   - Added tags to all resources
+4. **API Gateway Configuration**:
+   - Added CORS support
+   - Configured throttling and metrics
+   - Added proper routes for the API
 
-5. **Monitoring**:
-   - Added CloudWatch logs for Lambda
-   - Configured API Gateway with detailed metrics
+5. **Resource Tagging**:
+   - Added tags to all resources for better management
+   - Included environment and project information

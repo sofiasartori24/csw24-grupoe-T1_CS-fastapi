@@ -10,23 +10,17 @@ output "private_subnet_ids" {
 
 output "rds_endpoint" {
   description = "Endpoint of the RDS MySQL instance"
-  value       = aws_db_instance.rds.address
+  value       = data.aws_db_instance.existing.address
 }
 
 output "rds_port" {
   description = "Port of the RDS MySQL instance"
-  value       = aws_db_instance.rds.port
+  value       = data.aws_db_instance.existing.port
 }
 
 output "rds_name" {
   description = "Name of the RDS MySQL instance"
-  value       = aws_db_instance.rds.db_name
-}
-
-output "rds_username" {
-  description = "Username for the RDS MySQL instance"
-  value       = aws_db_instance.rds.username
-  sensitive   = true
+  value       = var.db_name
 }
 
 output "lambda_function_name" {
@@ -57,7 +51,7 @@ output "lambda_security_group_id" {
 
 output "rds_security_group_id" {
   description = "ID of the RDS security group"
-  value       = aws_security_group.rds_sg.id
+  value       = var.rds_security_group_id
 }
 
 output "api_gateway_id" {
@@ -87,10 +81,5 @@ output "cloudwatch_log_group" {
 
 output "lambda_role_arn" {
   description = "ARN of the Lambda execution role"
-  value       = aws_iam_role.lambda_role.arn
-}
-
-output "lambda_role_name" {
-  description = "Name of the Lambda execution role"
-  value       = aws_iam_role.lambda_role.name
+  value       = var.lambda_role_arn
 }

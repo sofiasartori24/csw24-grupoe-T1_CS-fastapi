@@ -38,9 +38,10 @@ engine = create_engine(
     pool_size=5,         # Limit pool size for Lambda environment
     max_overflow=10,     # Allow up to 10 connections beyond pool_size
     connect_args={
-        "connect_timeout": 10,  # 10 second connection timeout (increased from 5)
+        "connect_timeout": 20,  # 20 second connection timeout (increased from 10)
         "read_timeout": 30,     # 30 second read timeout
-        "write_timeout": 30     # 30 second write timeout
+        "write_timeout": 30,    # 30 second write timeout
+        "ssl": {"ssl_mode": "REQUIRED"}  # Enable SSL for secure connections
     }
 )
 
@@ -93,8 +94,9 @@ def get_db_with_retry():
             db = SessionLocal()
             
             # Test the connection with a simple query
+            logger.info(f"Testing database connection (attempt {attempt+1})...")
             result = db.execute(text("SELECT 1")).scalar()
-            logger.debug(f"Database connection successful (attempt {attempt+1}). Test query result: {result}")
+            logger.info(f"Database connection successful (attempt {attempt+1}). Test query result: {result}")
             return db
             
         except (OperationalError, DatabaseError) as e:
@@ -107,6 +109,7 @@ def get_db_with_retry():
             
             logger.warning(
                 f"Database connection failed (attempt {attempt+1}/{MAX_RETRIES}): {str(e)}. "
+                f"Host: {DB_HOST}, Database: {DB_NAME}. "
                 f"Retrying in {wait_time:.2f} seconds..."
             )
             time.sleep(wait_time)
@@ -127,6 +130,7 @@ def get_db_with_retry():
     error_message = (
         f"Failed to connect to database after {MAX_RETRIES} attempts. "
         f"Host: {DB_HOST}, Database: {DB_NAME}, User: {DB_USER}. "
+        f"Connection timeout: 20 seconds. "
         f"Last error: {str(last_exception)}"
     )
     raise OperationalError(error_message, None, last_exception)
