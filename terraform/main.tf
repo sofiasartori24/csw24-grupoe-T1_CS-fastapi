@@ -1,65 +1,15 @@
 # AWS Infrastructure for FastAPI Application
 
-# Get existing VPC information
-data "aws_vpc" "selected" {
-  id = var.vpc_id
-}
-
-# Get subnet information
-data "aws_subnet" "selected" {
-  count = length(var.private_subnet_ids)
-  id    = var.private_subnet_ids[count.index]
-}
-
-# Create a DB subnet group for RDS
-resource "aws_db_subnet_group" "rds_subnet_group" {
-  name        = "resources-management-subnet-group"
-  description = "Subnet group for RDS instance"
-  subnet_ids  = var.private_subnet_ids
-
-  tags = {
-    Name        = "resources-management-subnet-group"
-    Environment = var.environment
-    Project     = var.project_name
-    ManagedBy   = "terraform"
-  }
-}
-
-# Create a security group for RDS
-resource "aws_security_group" "rds_sg" {
-  name        = "resources-management-rds-sg"
-  description = "Security group for RDS instance"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.lambda_sg.id]
-    description     = "Allow MySQL connections from Lambda function"
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
-  }
-
-  tags = {
-    Name        = "resources-management-rds-sg"
-    Environment = var.environment
-    Project     = var.project_name
-    ManagedBy   = "terraform"
-  }
+# Use existing RDS instance instead of creating a new one
+data "aws_db_instance" "existing" {
+  db_instance_identifier = "resources-management-db"
 }
 
 # Create a security group for Lambda to access RDS
 resource "aws_security_group" "lambda_sg" {
   name        = "lambda-to-rds-sg"
   description = "Security group for Lambda function to access RDS"
-  vpc_id      = var.vpc_id
+  vpc_id      = var.vpc_id  # Use the same VPC as the RDS instance
   
   egress {
     from_port   = 0
@@ -77,32 +27,15 @@ resource "aws_security_group" "lambda_sg" {
   }
 }
 
-# Create RDS MySQL instance
-resource "aws_db_instance" "rds" {
-  identifier             = "resources-management-db"
-  engine                 = "mysql"
-  engine_version         = "8.0"
-  instance_class         = var.db_instance_class
-  allocated_storage      = var.db_allocated_storage
-  storage_type           = "gp2"
-  db_name                = var.db_name
-  username               = var.db_username
-  password               = var.db_password
-  parameter_group_name   = "default.mysql8.0"
-  db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]
-  skip_final_snapshot    = true
-  publicly_accessible    = false
-  multi_az               = var.db_multi_az
-  backup_retention_period = var.db_backup_retention_period
-  deletion_protection    = var.db_deletion_protection
-
-  tags = {
-    Name        = "resources-management-db"
-    Environment = var.environment
-    Project     = var.project_name
-    ManagedBy   = "terraform"
-  }
+# Add a rule to the RDS security group to allow inbound connections from the Lambda security group
+resource "aws_security_group_rule" "rds_ingress_from_lambda" {
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  security_group_id        = var.rds_security_group_id  # RDS security group ID
+  source_security_group_id = aws_security_group.lambda_sg.id
+  description              = "Allow MySQL connections from Lambda function"
 }
 
 # Package the Lambda function code
@@ -120,48 +53,12 @@ data "archive_file" "lambda_zip" {
   ]
 }
 
-# Create IAM role for Lambda
-resource "aws_iam_role" "lambda_role" {
-  name = "lambda-execution-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name        = "lambda-execution-role"
-    Environment = var.environment
-    Project     = var.project_name
-    ManagedBy   = "terraform"
-  }
-}
-
-# Attach policies to Lambda role
-resource "aws_iam_role_policy_attachment" "lambda_basic" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_vpc" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
-# Create the Lambda function
+# Create the Lambda function with a unique name to avoid conflicts
 resource "aws_lambda_function" "fastapi_lambda" {
-  function_name    = "FastAPIApplication-${var.environment}"
+  function_name    = "FastAPIApplication-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-  role             = aws_iam_role.lambda_role.arn
+  role             = var.lambda_role_arn
   handler          = "lambda_handler.lambda_handler"
   runtime          = var.lambda_runtime
   memory_size      = var.lambda_memory_size
@@ -169,7 +66,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
 
   environment {
     variables = {
-      DB_HOST       = aws_db_instance.rds.address
+      DB_HOST       = data.aws_db_instance.existing.address
       DB_USER       = var.db_username
       DB_PASSWORD   = var.db_password
       DB_NAME       = var.db_name
@@ -190,7 +87,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
   }
   
   tags = {
-    Name        = "FastAPIApplication-${var.environment}"
+    Name        = "FastAPIApplication"
     Environment = var.environment
     Project     = var.project_name
     ManagedBy   = "terraform"
@@ -269,7 +166,7 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
   retention_in_days = var.log_retention_days
 
   tags = {
-    Name        = "lambda-logs-${var.environment}"
+    Name        = "lambda-logs"
     Environment = var.environment
     Project     = var.project_name
     ManagedBy   = "terraform"

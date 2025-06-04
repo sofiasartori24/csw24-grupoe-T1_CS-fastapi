@@ -18,10 +18,10 @@ if not logger.handlers:
     handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(handler)
 
-# Maximum number of connection retries
-MAX_RETRIES = 3
-# Delay between retries (in seconds)
-RETRY_DELAY = 0.5
+# Maximum number of connection retries - aligned with database.py
+MAX_RETRIES = 5
+# Delay between retries (in seconds) - aligned with database.py
+RETRY_DELAY = 1
 
 def format_error_response(status_code: int, message: str, request_id: Optional[str] = None) -> Dict[str, Any]:
     """
@@ -75,9 +75,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     request_id = context.aws_request_id if hasattr(context, 'aws_request_id') else None
     
-    # Log the incoming request (only basic info to avoid large logs)
-    path = event.get('path', event.get('rawPath', 'UNKNOWN'))
-    method = event.get('httpMethod', event.get('requestContext', {}).get('http', {}).get('method', 'UNKNOWN'))
+    # Log the full event for debugging
+    logger.debug(f"Full event: {json.dumps(event)}")
+    
+    # Extract path and method with more robust fallbacks for different API Gateway versions
+    path = event.get('path', event.get('rawPath', event.get('requestContext', {}).get('path', 'UNKNOWN')))
+    method = event.get('httpMethod', event.get('requestContext', {}).get('http', {}).get('method',
+                      event.get('requestContext', {}).get('httpMethod', 'UNKNOWN')))
+    
     logger.info(f"Request received: {method} {path} (Request ID: {request_id})")
     
     # Log environment variables for debugging
@@ -94,16 +99,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info("Handling health check endpoint")
         return {
             "statusCode": 200,
-            "body": json.dumps({"status": "healthy"}),  # Exact format expected by tests
+            "body": json.dumps({"status": "healthy"}),
             "headers": {"Content-Type": "application/json"}
         }
     
     # Special handling for root endpoint
-    if path == '/' or path == '' or path.endswith('/Prod'):
+    if path == '/' or path == '' or path.endswith('/Prod') or path == '/Prod' or path == '/Prod/':
         logger.info("Handling root endpoint")
         return {
             "statusCode": 200,
-            "body": json.dumps({"message": "Hello, World!"}),  # Exact format expected by tests
+            "body": json.dumps({"message": "Hello, World!"}),
             "headers": {"Content-Type": "application/json"}
         }
     
@@ -111,29 +116,50 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Execute the handler with retry capability for database operations
         for attempt in range(MAX_RETRIES):
             try:
+                logger.info(f"Executing handler (attempt {attempt+1}/{MAX_RETRIES})... (Request ID: {request_id})")
                 return handler(event, context)
             except (OperationalError, DatabaseError, pymysql.OperationalError) as e:
                 if attempt < MAX_RETRIES - 1:
-                    wait_time = RETRY_DELAY * (2 ** attempt)  # Exponential backoff
+                    # Calculate wait time with exponential backoff and some jitter
+                    base_wait_time = RETRY_DELAY * (2 ** attempt)  # Exponential backoff
+                    jitter = base_wait_time * 0.2 * (0.5 - time.time() % 0.5)  # Add up to 20% jitter
+                    wait_time = base_wait_time + jitter
+                    
+                    # Log detailed error information
+                    db_host = os.environ.get("DB_HOST", "unknown")
+                    db_name = os.environ.get("DB_NAME", "unknown")
+                    
                     logger.warning(
                         f"Database operation failed (attempt {attempt+1}/{MAX_RETRIES}): {str(e)}. "
-                        f"Retrying in {wait_time} seconds... (Request ID: {request_id})"
+                        f"Host: {db_host}, Database: {db_name}. "
+                        f"Retrying in {wait_time:.2f} seconds... (Request ID: {request_id})"
                     )
                     time.sleep(wait_time)
                 else:
                     # Last attempt failed, re-raise the exception
-                    logger.error(f"All database connection retries failed. (Request ID: {request_id})")
+                    logger.error(
+                        f"All database connection retries ({MAX_RETRIES}) failed. "
+                        f"Last error: {str(e)}. (Request ID: {request_id})"
+                    )
                     raise
         
     except SQLAlchemyError as e:
         error_msg = f"Database error: {str(e)}"
         logger.error(f"{error_msg}\n{traceback.format_exc()}\n(Request ID: {request_id})")
-        return format_error_response(500, "Database error occurred", request_id)
+        
+        # Include more specific error message for the client
+        db_host = os.environ.get("DB_HOST", "unknown")
+        error_details = f"Database error with host {db_host}. Request ID: {request_id}"
+        return format_error_response(500, error_details, request_id)
         
     except pymysql.Error as e:
         error_msg = f"MySQL error: {str(e)}"
         logger.error(f"{error_msg}\n{traceback.format_exc()}\n(Request ID: {request_id})")
-        return format_error_response(500, "Database connection error", request_id)
+        
+        # Include more specific error message for the client
+        db_host = os.environ.get("DB_HOST", "unknown")
+        error_details = f"Database connection error with host {db_host}. Request ID: {request_id}"
+        return format_error_response(500, error_details, request_id)
         
     except Exception as e:
         error_msg = f"Unexpected error: {str(e)}"

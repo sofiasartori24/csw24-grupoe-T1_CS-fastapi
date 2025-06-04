@@ -27,34 +27,16 @@ variable "db_password" {
   sensitive   = true
 }
 
-variable "db_instance_class" {
-  description = "Instance class for the RDS instance"
+variable "rds_security_group_id" {
+  description = "ID of the security group for the RDS instance"
   type        = string
-  default     = "db.t3.micro"
+  default     = "sg-087e6b149c05647f2"  # Default from previous configuration
 }
 
-variable "db_allocated_storage" {
-  description = "Allocated storage for the RDS instance in GB"
-  type        = number
-  default     = 20
-}
-
-variable "db_multi_az" {
-  description = "Whether to enable Multi-AZ for the RDS instance"
-  type        = bool
-  default     = false
-}
-
-variable "db_backup_retention_period" {
-  description = "Number of days to retain backups"
-  type        = number
-  default     = 7
-}
-
-variable "db_deletion_protection" {
-  description = "Whether to enable deletion protection for the RDS instance"
-  type        = bool
-  default     = false
+variable "lambda_role_arn" {
+  description = "ARN of the IAM role for the Lambda function"
+  type        = string
+  default     = "arn:aws:iam::030764292549:role/LabRole"  # Default from previous configuration
 }
 
 variable "db_pool_size" {
