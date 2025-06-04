@@ -22,9 +22,9 @@ data "archive_file" "lambda_zip" {
   ]
 }
 
-# Create the Lambda function using the LabRole
+# Create the Lambda function with a unique name to avoid conflicts
 resource "aws_lambda_function" "fastapi_lambda" {
-  function_name    = "FastAPIApplication"
+  function_name    = "FastAPIApplication-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   role             = "arn:aws:iam::030764292549:role/LabRole"
