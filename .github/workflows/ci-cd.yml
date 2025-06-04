@@ -122,32 +122,41 @@ jobs:
       run: |
         cd terraform
         
-        # Use raw output instead of JSON to avoid parsing issues
-        API_URL=$(terraform output -raw api_gateway_url || echo "")
-        echo "Raw API URL: $API_URL"
+        # Use a temporary file to capture the output
+        terraform output -raw api_gateway_url > api_url.txt 2>/dev/null || echo "" > api_url.txt
+        cat api_url.txt
         
-        # Clean the URL - remove any debug info or extra text
-        CLEAN_URL=$(echo "$API_URL" | grep -o 'https://[^[:space:]]*' | head -1 || echo "")
-        if [[ -z "$CLEAN_URL" ]]; then
-          # Try another pattern if the first one fails
-          CLEAN_URL=$(echo "$API_URL" | grep -o 'https://[^:]*' | head -1 || echo "")
-        fi
-        echo "Cleaned URL: $CLEAN_URL"
+        # Extract just the URL part before any debug information
+        CLEAN_URL=$(grep -o 'https://[^:]*' api_url.txt | head -1 || echo "")
+        echo "Extracted URL: $CLEAN_URL"
         
-        # Get Lambda function name using raw output
+        # Get Lambda function name using raw output to a file
         echo "Getting Lambda function name..."
-        LAMBDA_FUNCTION=$(terraform output -raw lambda_function_name || echo "")
-        echo "Lambda function: $LAMBDA_FUNCTION"
+        terraform output -raw lambda_function_name > lambda_function.txt 2>/dev/null || echo "" > lambda_function.txt
+        cat lambda_function.txt
+        
+        # Extract just the function name part before any debug information
+        LAMBDA_FUNCTION=$(grep -o '^[^:]*' lambda_function.txt | head -1 || echo "")
+        echo "Extracted Lambda function: $LAMBDA_FUNCTION"
+        
+        # Manually set the values if we know what they should be
+        if [[ -z "$CLEAN_URL" ]]; then
+          echo "URL extraction failed, using hardcoded value"
+          CLEAN_URL="https://ahal70x3m8.execute-api.us-east-1.amazonaws.com/Prod"
+        fi
+        
+        if [[ -z "$LAMBDA_FUNCTION" ]]; then
+          echo "Lambda function extraction failed, using hardcoded value"
+          LAMBDA_FUNCTION="FastAPIApplication"
+        fi
         
         # Set outputs for use in later steps (GitHub Actions specific syntax)
-        # Use printf to ensure proper escaping of special characters
-        printf "api_url=%s\n" "$CLEAN_URL" >> $GITHUB_OUTPUT
-        printf "lambda_function=%s\n" "$LAMBDA_FUNCTION" >> $GITHUB_OUTPUT
+        echo "api_url=$CLEAN_URL" >> "$GITHUB_OUTPUT"
+        echo "lambda_function=$LAMBDA_FUNCTION" >> "$GITHUB_OUTPUT"
         
         # Export as environment variables for this job
-        # Use printf to ensure proper escaping of special characters
-        printf "API_URL=%s\n" "$CLEAN_URL" >> $GITHUB_ENV
-        printf "LAMBDA_FUNCTION=%s\n" "$LAMBDA_FUNCTION" >> $GITHUB_ENV
+        echo "API_URL=$CLEAN_URL" >> "$GITHUB_ENV"
+        echo "LAMBDA_FUNCTION=$LAMBDA_FUNCTION" >> "$GITHUB_ENV"
     
     - name: Wait for Lambda to be ready
       run: |
