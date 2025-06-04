@@ -17,11 +17,8 @@ terraform {
   required_version = ">= 1.0"
   
   # S3 backend configuration for state storage
-  # The actual values will be provided via -backend-config in the CI/CD pipeline
   backend "s3" {
-    # bucket = "terraform-state-bucket"
-    # key    = "resources-management/terraform.tfstate"
-    # region = "us-east-1"
-    # encrypt = true
+    # These values will be filled in by the CI/CD pipeline
+    # using -backend-config parameters
   }
 }
