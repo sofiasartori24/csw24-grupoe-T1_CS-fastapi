@@ -28,7 +28,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   role             = "arn:aws:iam::030764292549:role/LabRole"
-  handler          = "simple_lambda_handler.handler"
+  handler          = "lambda_handler.handler"
   runtime          = var.lambda_runtime
   memory_size      = var.lambda_memory_size
   timeout          = var.lambda_timeout

@@ -89,16 +89,16 @@ jobs:
           echo "Using Subnet IDs from secrets: $SUBNET_ID_1, $SUBNET_ID_2"
         fi
         
-        # Use a hardcoded RDS endpoint since we might not have permission to describe RDS instances
-        RDS_ENDPOINT="resources-management-db.xxxxxxxxxx.us-east-1.rds.amazonaws.com"
-        echo "Using RDS endpoint: $RDS_ENDPOINT"
+        # Use the actual RDS endpoint from the Terraform output
+        RDS_ENDPOINT="resources-management-db.cffobfgdtrxg.us-east-1.rds.amazonaws.com"
+        echo "Using actual RDS endpoint: $RDS_ENDPOINT"
         
         cat > terraform/terraform.auto.tfvars <<EOF
         vpc_id = "$VPC_ID"
         private_subnet_ids = ["$SUBNET_ID_1", "$SUBNET_ID_2"]
         db_name = "resources_management"
-        db_username = "${{ secrets.DB_USERNAME || 'admin' }}"
-        db_password = "${{ secrets.DB_PASSWORD || 'Password123!' }}"
+        db_username = "${{ secrets.DB_USERNAME || 'user' }}"
+        db_password = "${{ secrets.DB_PASSWORD || 'password' }}"
         region = "us-east-1"
         db_host = "$RDS_ENDPOINT"
         EOF
