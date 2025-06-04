@@ -20,7 +20,7 @@ output "lambda_function_arn" {
 
 output "lambda_environment_variables" {
   description = "Environment variables set in the Lambda function"
-  value       = aws_lambda_function.fastapi_lambda.environment.variables
+  value       = aws_lambda_function.fastapi_lambda.environment[0].variables
   sensitive   = true
 }
 
