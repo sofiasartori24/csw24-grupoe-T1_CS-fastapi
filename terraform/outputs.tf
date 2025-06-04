@@ -17,3 +17,19 @@ output "lambda_function_arn" {
   description = "ARN of the Lambda function"
   value       = data.aws_lambda_function.existing_lambda.arn
 }
+
+output "lambda_environment_variables" {
+  description = "Environment variables set in the Lambda function"
+  value       = aws_lambda_function.update_lambda_config.environment.variables
+  sensitive   = true
+}
+
+output "api_gateway_stage_name" {
+  description = "Name of the API Gateway stage"
+  value       = aws_apigatewayv2_stage.api_stage.name
+}
+
+output "api_gateway_endpoint" {
+  description = "Full endpoint URL for the API"
+  value       = "${aws_apigatewayv2_stage.api_stage.invoke_url}/"
+}

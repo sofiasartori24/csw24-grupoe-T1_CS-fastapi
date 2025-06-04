@@ -41,9 +41,39 @@ data "aws_db_instance" "existing" {
   db_instance_identifier = "resources-management-db"
 }
 
-# Use existing Lambda function instead of creating a new one
+# Use existing Lambda function
 data "aws_lambda_function" "existing_lambda" {
   function_name = "FastAPIApplication"
+}
+
+# Update the existing Lambda function's configuration
+resource "aws_lambda_function" "update_lambda_config" {
+  function_name = data.aws_lambda_function.existing_lambda.function_name
+  
+  # We need to reference the existing Lambda's properties
+  # but update only what we need to change
+  role             = data.aws_lambda_function.existing_lambda.role
+  handler          = data.aws_lambda_function.existing_lambda.handler
+  runtime          = data.aws_lambda_function.existing_lambda.runtime
+  filename         = data.aws_lambda_function.existing_lambda.filename
+  source_code_hash = data.aws_lambda_function.existing_lambda.source_code_hash
+  
+  environment {
+    variables = {
+      DB_HOST     = data.aws_db_instance.existing.address
+      DB_USER     = var.db_username
+      DB_PASSWORD = var.db_password
+      DB_NAME     = var.db_name
+    }
+  }
+  
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.lambda_sg.id]
+  }
+  
+  memory_size = 512
+  timeout     = 60
 }
 
 # Keep this for reference, but don't use it to create a new Lambda
@@ -82,12 +112,24 @@ data "aws_lambda_function" "existing_lambda" {
 resource "aws_apigatewayv2_api" "api_gateway" {
   name          = "fastapi-api-gateway"
   protocol_type = "HTTP"
+  
+  cors_configuration {
+    allow_headers = ["*"]
+    allow_methods = ["*"]
+    allow_origins = ["*"]
+  }
 }
 
 resource "aws_apigatewayv2_stage" "api_stage" {
   api_id      = aws_apigatewayv2_api.api_gateway.id
   name        = "Prod"
   auto_deploy = true
+  
+  default_route_settings {
+    throttling_burst_limit = 100
+    throttling_rate_limit  = 50
+    detailed_metrics_enabled = true
+  }
 }
 
 resource "aws_apigatewayv2_integration" "lambda_integration" {
@@ -95,7 +137,7 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
   integration_type   = "AWS_PROXY"
   integration_uri    = data.aws_lambda_function.existing_lambda.invoke_arn
   integration_method = "POST"
-  payload_format_version = "2.0"
+  payload_format_version = "1.0"
 }
 
 resource "aws_apigatewayv2_route" "proxy_route" {
@@ -116,4 +158,37 @@ resource "aws_lambda_permission" "api_gateway_permission" {
   function_name = data.aws_lambda_function.existing_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.api_gateway.execution_arn}/*/*"
+}
+
+# Create a policy document for Lambda to access RDS
+data "aws_iam_policy_document" "lambda_rds_access" {
+  statement {
+    actions = [
+      "rds:Connect",
+      "rds:DescribeDBInstances",
+      "rds:DescribeDBClusters"
+    ]
+    resources = [
+      data.aws_db_instance.existing.db_instance_arn
+    ]
+  }
+}
+
+# Create a policy for Lambda to access RDS
+resource "aws_iam_policy" "lambda_rds_access" {
+  name        = "lambda-rds-access-policy"
+  description = "Policy to allow Lambda to access RDS"
+  policy      = data.aws_iam_policy_document.lambda_rds_access.json
+}
+
+# Attach the policy to the Lambda role
+resource "aws_iam_role_policy_attachment" "lambda_rds_access" {
+  role       = split("/", data.aws_lambda_function.existing_lambda.role)[1]
+  policy_arn = aws_iam_policy.lambda_rds_access.arn
+}
+
+# Add VPC access policy to Lambda role
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = split("/", data.aws_lambda_function.existing_lambda.role)[1]
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
