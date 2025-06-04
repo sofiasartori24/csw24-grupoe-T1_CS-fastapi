@@ -106,7 +106,12 @@ jobs:
       
       - name: Terraform Init
         working-directory: ./terraform
-        run: terraform init
+        run: |
+          # Provide S3 backend configuration
+          terraform init \
+            -backend-config="bucket=terraform-state-${{ github.repository_owner }}-${{ github.repository }}" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=us-east-1"
       
       - name: Terraform Validate
         working-directory: ./terraform
