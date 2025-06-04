@@ -1,117 +1,107 @@
-# Terraform Infrastructure as Code (IaC)
+# AWS Infrastructure for FastAPI Application
 
-This directory contains Terraform configuration files to provision the entire infrastructure for the FastAPI application on AWS, including:
+This directory contains Terraform configuration for deploying the FastAPI application to AWS. The infrastructure includes:
 
+- VPC with private subnets
 - RDS MySQL database
-- Lambda function
+- Lambda function with VPC access
 - API Gateway
-- IAM roles and policies
-- Security groups
+- IAM roles and security groups
+- CloudWatch logs
+
+## Architecture
+
+The architecture follows AWS best practices:
+
+1. **VPC and Networking**:
+   - The application runs in a VPC with private subnets
+   - Security groups control access between components
+
+2. **Database**:
+   - RDS MySQL instance in private subnets
+   - Security group allows access only from Lambda
+
+3. **Application**:
+   - Lambda function with VPC access to the database
+   - API Gateway provides HTTP endpoints
+   - CloudWatch logs for monitoring
+
+4. **Security**:
+   - IAM roles with least privilege
+   - Security groups with restricted access
+   - Environment variables for configuration
 
 ## Prerequisites
 
-- [Terraform](https://www.terraform.io/downloads.html) installed (version >= 1.0)
-- AWS credentials configured
-- Basic knowledge of Terraform and AWS
-- S3 bucket for Terraform state (for production deployments)
+- AWS CLI configured with appropriate credentials
+- Terraform v1.0 or later
+- Existing VPC with private subnets
 
 ## Configuration
 
-1. Update the `terraform.tfvars` file with your specific values:
-   - `vpc_id`: Your VPC ID
-   - `private_subnet_ids`: List of your private subnet IDs
-   - `db_name`, `db_username`, `db_password`: Database credentials
-   - Other variables as needed
+The infrastructure is configured using the following files:
 
-## Usage
+- `main.tf`: Main infrastructure configuration
+- `variables.tf`: Variable definitions
+- `terraform.tfvars`: Variable values
+- `outputs.tf`: Output values
+- `provider.tf`: Provider configuration
 
-### Local Development
+## Deployment
 
-1. Initialize Terraform:
-   ```bash
+To deploy the infrastructure:
+
+1. Update `terraform.tfvars` with your desired configuration
+2. Initialize Terraform:
+   ```
    terraform init
    ```
-
-2. Plan the deployment:
-   ```bash
+3. Plan the deployment:
+   ```
    terraform plan
    ```
-
-3. Apply the changes:
-   ```bash
+4. Apply the changes:
+   ```
    terraform apply
    ```
 
-4. To destroy the infrastructure:
-   ```bash
-   terraform destroy
-   ```
+## Cleanup
 
-### Production Deployment with S3 Backend
+To destroy the infrastructure:
 
-1. Create an S3 bucket for Terraform state:
-   ```bash
-   aws s3 mb s3://your-terraform-state-bucket
-   ```
+```
+terraform destroy
+```
 
-2. Initialize Terraform with the S3 backend:
-   ```bash
-   terraform init \
-     -backend-config="bucket=your-terraform-state-bucket" \
-     -backend-config="key=resources-management/terraform.tfstate" \
-     -backend-config="region=us-east-1"
-   ```
+## Important Notes
 
-3. Plan and apply as usual:
-   ```bash
-   terraform plan
-   terraform apply
-   ```
+- The RDS instance is configured with deletion protection by default. Set `db_deletion_protection = false` in `terraform.tfvars` to allow deletion.
+- The Lambda function is configured with VPC access to connect to the RDS instance. This requires the Lambda function to have the appropriate IAM permissions.
+- The API Gateway is configured with CORS to allow cross-origin requests.
+- CloudWatch logs are configured to retain logs for 14 days by default.
 
-## CI/CD Integration
+## Improvements
 
-This Terraform configuration is designed to work with the GitHub Actions CI/CD pipeline. The pipeline:
+The following improvements have been made to the previous configuration:
 
-1. Sets up AWS credentials
-2. Creates a `terraform.auto.tfvars` file with values from GitHub Secrets
-3. Initializes Terraform with the S3 backend
-4. Validates, plans, and applies the Terraform configuration
-5. Tests the deployed API
+1. **VPC Configuration**:
+   - Properly configured VPC access for Lambda
+   - Used variables for VPC and subnet IDs
 
-Required GitHub Secrets for CI/CD:
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`
-- `VPC_ID`, `SUBNET_ID_1`, `SUBNET_ID_2`
-- `DB_USERNAME`, `DB_PASSWORD`
-- `TF_STATE_BUCKET`
+2. **RDS Configuration**:
+   - Created a new RDS instance with proper configuration
+   - Added security group for RDS with restricted access
 
-## Outputs
+3. **Lambda Configuration**:
+   - Created IAM role with appropriate permissions
+   - Added VPC configuration for Lambda
+   - Added environment variables for configuration
 
-After successful deployment, Terraform will output:
-- `rds_endpoint`: The endpoint of the RDS MySQL instance
-- `api_gateway_url`: The URL of the API Gateway endpoint
-- `lambda_function_name`: The name of the Lambda function
-- `lambda_function_arn`: The ARN of the Lambda function
+4. **Security**:
+   - Added proper IAM roles and policies
+   - Restricted security group access
+   - Added tags to all resources
 
-## Resources Created
-
-- **Database**:
-  - RDS MySQL instance
-  - DB subnet group
-  - Security group for RDS
-
-- **Lambda**:
-  - Lambda function with the FastAPI application
-  - IAM role and policies
-  - Security group for Lambda
-
-- **API Gateway**:
-  - HTTP API Gateway
-  - Routes for the API
-  - Integration with Lambda
-  - Deployment stage
-
-## Notes
-
-- The Lambda function is configured to use the RDS MySQL instance
-- The API Gateway is configured to route all requests to the Lambda function
-- The Lambda function has the necessary permissions to access the RDS instance
+5. **Monitoring**:
+   - Added CloudWatch logs for Lambda
+   - Configured API Gateway with detailed metrics
