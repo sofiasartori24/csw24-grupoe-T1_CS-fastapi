@@ -35,22 +35,10 @@ resource "aws_security_group" "lambda_sg" {
   }
 }
 
-resource "aws_db_instance" "mydb" {
-  identifier             = "resources-management-db"
-  allocated_storage      = 20
-  engine                 = "mysql"
-  engine_version         = "8.0"
-  instance_class         = "db.t3.micro"
-  db_name                = var.db_name
-  username               = var.db_username
-  password               = var.db_password
-  parameter_group_name   = "default.mysql8.0"
-  db_subnet_group_name   = aws_db_subnet_group.default.name
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]
-  skip_final_snapshot    = true
-  publicly_accessible    = false
-  deletion_protection    = false
-  backup_retention_period = 7
+# Use existing RDS instance instead of creating a new one
+# The RDS instance already exists with identifier "resources-management-db"
+data "aws_db_instance" "existing" {
+  db_instance_identifier = "resources-management-db"
 }
 
 data "archive_file" "lambda_zip" {
@@ -71,7 +59,9 @@ resource "aws_lambda_function" "fastapi_lambda" {
 
   environment {
     variables = {
-      DB_HOST     = aws_db_instance.mydb.address
+      # Use environment variables for database connection
+      # since we're using an existing RDS instance
+      DB_HOST     = var.db_host
       DB_USER     = var.db_username
       DB_PASSWORD = var.db_password
       DB_NAME     = var.db_name
