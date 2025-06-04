@@ -24,7 +24,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
@@ -46,11 +46,21 @@ jobs:
         run: |
           pytest t1_cs/tests/test_database.py --cov=t1_cs/app --cov-append --cov-report=xml
       
+      - name: Verify coverage report
+        run: |
+          if [ -f "coverage.xml" ]; then
+            echo "Coverage report found at $(pwd)/coverage.xml"
+          else
+            echo "Warning: coverage.xml not found in expected location"
+            find . -name "coverage.xml" -type f
+          fi
+      
       - name: Upload test coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage.xml
+          path: ./coverage.xml
+          if-no-files-found: warn
       
       - name: Build Docker image
         run: |
@@ -60,7 +70,13 @@ jobs:
         run: |
           docker run --name test-container -d -p 8000:8000 fastapi-app:${{ github.sha }}
           sleep 5
-          curl -s http://localhost:8000/health || echo "Health check failed"
+          if ! curl -s http://localhost:8000/health; then
+            echo "Health check failed"
+            docker logs test-container
+            docker stop test-container
+            docker rm test-container
+            exit 1
+          fi
           docker stop test-container
           docker rm test-container
 
@@ -72,10 +88,10 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -84,7 +100,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.0.0
+          terraform_version: 1.7.0
       
       - name: Terraform Init
         working-directory: ./terraform
@@ -128,7 +144,7 @@ jobs:
       
       - name: Send deployment notification
         if: always()
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@v2.2.0
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_CHANNEL: deployments
