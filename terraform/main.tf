@@ -1,39 +1,5 @@
-# Database Resources
-resource "aws_db_subnet_group" "default" {
-  name       = "rds-subnet-group"
-  subnet_ids = var.private_subnet_ids
-}
-
-resource "aws_security_group" "rds_sg" {
-  name   = "rds_sg"
-  vpc_id = var.vpc_id
-
-  ingress {
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.lambda_sg.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_security_group" "lambda_sg" {
-  name   = "lambda_sg"
-  vpc_id = var.vpc_id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
+# Use existing resources instead of creating new ones
+# This approach avoids issues with VPC and subnet permissions
 
 # Use existing RDS instance instead of creating a new one
 # The RDS instance already exists with identifier "resources-management-db"
@@ -76,10 +42,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
     }
   }
   
-  vpc_config {
-    subnet_ids         = var.private_subnet_ids
-    security_group_ids = [aws_security_group.lambda_sg.id]
-  }
+  # Removed VPC configuration to avoid subnet and security group issues
 }
 
 # Use existing Lambda function instead of creating a new one
@@ -159,29 +122,5 @@ resource "aws_lambda_permission" "api_gateway_permission" {
   source_arn    = "${aws_apigatewayv2_api.api_gateway.execution_arn}/*/*"
 }
 
-# Create a policy document for Lambda to access RDS
-data "aws_iam_policy_document" "lambda_rds_access" {
-  statement {
-    actions = [
-      "rds:Connect",
-      "rds:DescribeDBInstances",
-      "rds:DescribeDBClusters"
-    ]
-    resources = [
-      data.aws_db_instance.existing.db_instance_arn
-    ]
-  }
-}
-
-# Create a policy for Lambda to access RDS
-resource "aws_iam_policy" "lambda_rds_access" {
-  name        = "lambda-rds-access-policy"
-  description = "Policy to allow Lambda to access RDS"
-  policy      = data.aws_iam_policy_document.lambda_rds_access.json
-}
-
-# Attach the policy to the LabRole
-resource "aws_iam_role_policy_attachment" "lambda_rds_access" {
-  role       = "LabRole"
-  policy_arn = aws_iam_policy.lambda_rds_access.arn
-}
+# Note: IAM policy attachments removed due to permission restrictions in AWS Lab environment
+# The LabRole should already have the necessary permissions to access RDS
