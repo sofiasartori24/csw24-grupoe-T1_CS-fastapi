@@ -10,17 +10,17 @@ output "api_gateway_url" {
 
 output "lambda_function_name" {
   description = "Name of the Lambda function"
-  value       = data.aws_lambda_function.existing_lambda.function_name
+  value       = aws_lambda_function.fastapi_lambda.function_name
 }
 
 output "lambda_function_arn" {
   description = "ARN of the Lambda function"
-  value       = data.aws_lambda_function.existing_lambda.arn
+  value       = aws_lambda_function.fastapi_lambda.arn
 }
 
 output "lambda_environment_variables" {
   description = "Environment variables set in the Lambda function"
-  value       = aws_lambda_function.update_lambda_config.environment.variables
+  value       = aws_lambda_function.fastapi_lambda.environment.variables
   sensitive   = true
 }
 
