@@ -10,10 +10,10 @@ output "api_gateway_url" {
 
 output "lambda_function_name" {
   description = "Name of the Lambda function"
-  value       = aws_lambda_function.fastapi_lambda.function_name
+  value       = data.aws_lambda_function.existing_lambda.function_name
 }
 
 output "lambda_function_arn" {
   description = "ARN of the Lambda function"
-  value       = aws_lambda_function.fastapi_lambda.arn
+  value       = data.aws_lambda_function.existing_lambda.arn
 }
