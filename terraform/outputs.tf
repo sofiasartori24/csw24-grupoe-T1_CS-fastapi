@@ -1,6 +1,6 @@
 output "rds_endpoint" {
   description = "Endpoint of the RDS MySQL instance"
-  value       = aws_db_instance.mydb.address
+  value       = data.aws_db_instance.existing.address
 }
 
 output "api_gateway_url" {

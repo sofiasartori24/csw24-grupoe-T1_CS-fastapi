@@ -50,3 +50,9 @@ variable "region" {
   type        = string
   default     = "us-east-1"
 }
+
+variable "db_host" {
+  description = "Hostname of the existing RDS instance"
+  type        = string
+  default     = "resources-management-db.xxxxxxxxxx.us-east-1.rds.amazonaws.com"
+}
