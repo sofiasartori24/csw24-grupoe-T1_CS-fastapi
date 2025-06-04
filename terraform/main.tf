@@ -1,10 +1,108 @@
-# Use existing resources instead of creating new ones
-# This approach avoids issues with VPC and subnet permissions
+# AWS Infrastructure for FastAPI Application
 
-# Use existing RDS instance instead of creating a new one
-# The RDS instance already exists with identifier "resources-management-db"
-data "aws_db_instance" "existing" {
-  db_instance_identifier = "resources-management-db"
+# Get existing VPC information
+data "aws_vpc" "selected" {
+  id = var.vpc_id
+}
+
+# Get subnet information
+data "aws_subnet" "selected" {
+  count = length(var.private_subnet_ids)
+  id    = var.private_subnet_ids[count.index]
+}
+
+# Create a DB subnet group for RDS
+resource "aws_db_subnet_group" "rds_subnet_group" {
+  name        = "resources-management-subnet-group"
+  description = "Subnet group for RDS instance"
+  subnet_ids  = var.private_subnet_ids
+
+  tags = {
+    Name        = "resources-management-subnet-group"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
+
+# Create a security group for RDS
+resource "aws_security_group" "rds_sg" {
+  name        = "resources-management-rds-sg"
+  description = "Security group for RDS instance"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.lambda_sg.id]
+    description     = "Allow MySQL connections from Lambda function"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = {
+    Name        = "resources-management-rds-sg"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
+
+# Create a security group for Lambda to access RDS
+resource "aws_security_group" "lambda_sg" {
+  name        = "lambda-to-rds-sg"
+  description = "Security group for Lambda function to access RDS"
+  vpc_id      = var.vpc_id
+  
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+  
+  tags = {
+    Name        = "lambda-to-rds-sg"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
+
+# Create RDS MySQL instance
+resource "aws_db_instance" "rds" {
+  identifier             = "resources-management-db"
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  instance_class         = var.db_instance_class
+  allocated_storage      = var.db_allocated_storage
+  storage_type           = "gp2"
+  db_name                = var.db_name
+  username               = var.db_username
+  password               = var.db_password
+  parameter_group_name   = "default.mysql8.0"
+  db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.name
+  vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  skip_final_snapshot    = true
+  publicly_accessible    = false
+  multi_az               = var.db_multi_az
+  backup_retention_period = var.db_backup_retention_period
+  deletion_protection    = var.db_deletion_protection
+
+  tags = {
+    Name        = "resources-management-db"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
 }
 
 # Package the Lambda function code
@@ -22,67 +120,86 @@ data "archive_file" "lambda_zip" {
   ]
 }
 
-# Create the Lambda function with a unique name to avoid conflicts
+# Create IAM role for Lambda
+resource "aws_iam_role" "lambda_role" {
+  name = "lambda-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "lambda-execution-role"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
+
+# Attach policies to Lambda role
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_vpc" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+# Create the Lambda function
 resource "aws_lambda_function" "fastapi_lambda" {
-  function_name    = "FastAPIApplication-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  function_name    = "FastAPIApplication-${var.environment}"
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-  role             = "arn:aws:iam::030764292549:role/LabRole"
-  handler          = "lambda_handler.lambda_handler"  # Explicitly use lambda_handler.py's lambda_handler function
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "lambda_handler.lambda_handler"
   runtime          = var.lambda_runtime
   memory_size      = var.lambda_memory_size
   timeout          = var.lambda_timeout
 
   environment {
     variables = {
-      DB_HOST     = data.aws_db_instance.existing.address
-      DB_USER     = var.db_username
-      DB_PASSWORD = var.db_password
-      DB_NAME     = var.db_name
-      # Add debug environment variables
-      DEBUG       = "true"
-      LOG_LEVEL   = "DEBUG"
-      # Add API configuration
-      API_VERSION = "1.0.0"
-      ENVIRONMENT = "production"
-      # Add connection pool settings
-      POOL_SIZE   = "5"
-      MAX_OVERFLOW = "10"
-      POOL_RECYCLE = "300"
+      DB_HOST       = aws_db_instance.rds.address
+      DB_USER       = var.db_username
+      DB_PASSWORD   = var.db_password
+      DB_NAME       = var.db_name
+      DEBUG         = var.debug_mode
+      LOG_LEVEL     = var.log_level
+      API_VERSION   = var.api_version
+      ENVIRONMENT   = var.environment
+      POOL_SIZE     = var.db_pool_size
+      MAX_OVERFLOW  = var.db_max_overflow
+      POOL_RECYCLE  = var.db_pool_recycle
     }
   }
   
-  # Removed layers due to permission issues in AWS Lab environment
+  # Add VPC configuration to allow Lambda to access RDS
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.lambda_sg.id]
+  }
+  
+  tags = {
+    Name        = "FastAPIApplication-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
 }
-
-# Use existing Lambda function instead of creating a new one
-# resource "aws_lambda_function" "fastapi_lambda" {
-#   function_name    = "FastAPIApplication"
-#   filename         = data.archive_file.lambda_zip.output_path
-#   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-#   role             = "arn:aws:iam::030764292549:role/LabRole"
-#   handler          = "lambda_handler.handler"
-#   runtime          = "python3.9"
-#   memory_size      = 512
-#   timeout          = 60
-#
-#   environment {
-#     variables = {
-#       # Use environment variables for database connection
-#       # since we're using an existing RDS instance
-#       DB_HOST     = var.db_host
-#       DB_USER     = var.db_username
-#       DB_PASSWORD = var.db_password
-#       DB_NAME     = var.db_name
-#     }
-#   }
-#
-#   # No dependencies on IAM resources since we're using an existing role
-# }
 
 # API Gateway Resources
 resource "aws_apigatewayv2_api" "api_gateway" {
-  name          = "fastapi-api-gateway"
+  name          = "fastapi-api-gateway-${var.environment}"
   protocol_type = "HTTP"
   
   cors_configuration {
@@ -90,17 +207,31 @@ resource "aws_apigatewayv2_api" "api_gateway" {
     allow_methods = ["*"]
     allow_origins = ["*"]
   }
+
+  tags = {
+    Name        = "fastapi-api-gateway-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
 }
 
 resource "aws_apigatewayv2_stage" "api_stage" {
   api_id      = aws_apigatewayv2_api.api_gateway.id
-  name        = "Prod"
+  name        = var.api_stage_name
   auto_deploy = true
   
   default_route_settings {
-    throttling_burst_limit = 100
-    throttling_rate_limit  = 50
+    throttling_burst_limit = var.api_throttling_burst_limit
+    throttling_rate_limit  = var.api_throttling_rate_limit
     detailed_metrics_enabled = true
+  }
+
+  tags = {
+    Name        = "fastapi-api-stage-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
   }
 }
 
@@ -132,5 +263,15 @@ resource "aws_lambda_permission" "api_gateway_permission" {
   source_arn    = "${aws_apigatewayv2_api.api_gateway.execution_arn}/*/*"
 }
 
-# Note: IAM policy attachments removed due to permission restrictions in AWS Lab environment
-# The LabRole should already have the necessary permissions to access RDS
+# CloudWatch Log Group for Lambda
+resource "aws_cloudwatch_log_group" "lambda_logs" {
+  name              = "/aws/lambda/${aws_lambda_function.fastapi_lambda.function_name}"
+  retention_in_days = var.log_retention_days
+
+  tags = {
+    Name        = "lambda-logs-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
