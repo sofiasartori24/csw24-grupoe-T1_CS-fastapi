@@ -45,11 +45,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
     }
   }
   
-  # Add layers for dependencies
-  layers = [
-    "arn:aws:lambda:us-east-1:898466741470:layer:psycopg2-py38:1",  # PostgreSQL adapter
-    "arn:aws:lambda:us-east-1:770693421928:layer:Klayers-python38-SQLAlchemy:1"  # SQLAlchemy
-  ]
+  # Removed layers due to permission issues in AWS Lab environment
 }
 
 # Use existing Lambda function instead of creating a new one
