@@ -53,52 +53,6 @@ resource "aws_db_instance" "mydb" {
   backup_retention_period = 7
 }
 
-# Lambda Function Resources
-resource "aws_iam_role" "lambda_role" {
-  name = "fastapi_lambda_role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = "arn:aws:iam::aws:policy:service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_iam_policy" "lambda_rds_access" {
-  name        = "lambda_rds_access"
-  description = "Allow Lambda to connect to RDS"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "rds-db:connect"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_rds_access" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = aws_iam_policy.lambda_rds_access.arn
-}
-
 data "archive_file" "lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../t1_cs"
@@ -109,7 +63,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
   function_name    = "FastAPIApplication"
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-  role             = aws_iam_role.lambda_role.arn
+  role             = "arn:aws:iam::030764292549:role/LabRole"
   handler          = "lambda_handler.handler"
   runtime          = "python3.9"
   memory_size      = 512
@@ -124,10 +78,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
     }
   }
 
-  depends_on = [
-    aws_iam_role_policy_attachment.lambda_basic_execution,
-    aws_iam_role_policy_attachment.lambda_rds_access
-  ]
+  # No dependencies on IAM resources since we're using an existing role
 }
 
 # API Gateway Resources

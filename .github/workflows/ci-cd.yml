@@ -68,12 +68,21 @@ jobs:
     
     - name: Create Terraform Variables File
       run: |
+        # Get VPC ID from AWS CLI
+        VPC_ID=$(aws ec2 describe-vpcs --query "Vpcs[0].VpcId" --output text)
+        echo "Using VPC ID: $VPC_ID"
+        
+        # Get Subnet IDs from AWS CLI
+        SUBNET_ID_1=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query "Subnets[0].SubnetId" --output text)
+        SUBNET_ID_2=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query "Subnets[1].SubnetId" --output text)
+        echo "Using Subnet IDs: $SUBNET_ID_1, $SUBNET_ID_2"
+        
         cat > terraform/terraform.auto.tfvars <<EOF
-        vpc_id = "${{ secrets.VPC_ID }}"
-        private_subnet_ids = ["${{ secrets.SUBNET_ID_1 }}", "${{ secrets.SUBNET_ID_2 }}"]
+        vpc_id = "$VPC_ID"
+        private_subnet_ids = ["$SUBNET_ID_1", "$SUBNET_ID_2"]
         db_name = "resources_management"
-        db_username = "${{ secrets.DB_USERNAME }}"
-        db_password = "${{ secrets.DB_PASSWORD }}"
+        db_username = "${{ secrets.DB_USERNAME || 'admin' }}"
+        db_password = "${{ secrets.DB_PASSWORD || 'Password123!' }}"
         region = "us-east-1"
         EOF
     
