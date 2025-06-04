@@ -1,4 +1,11 @@
-fastapi
-mangum
+fastapi==0.115.12
+mangum==0.17.0
 pymysql
-sqlalchemy
+sqlalchemy==2.0.40
+pydantic==2.11.4
+pydantic_core==2.33.2
+cryptography
+requests==2.31.0
+typing_extensions==4.13.2
+anyio<4.0,>=3.6.2
+starlette==0.46.2

@@ -41,23 +41,32 @@ data "aws_db_instance" "existing" {
   db_instance_identifier = "resources-management-db"
 }
 
-# Use existing Lambda function
-data "aws_lambda_function" "existing_lambda" {
-  function_name = "FastAPIApplication"
+# Package the Lambda function code
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/../t1_cs"
+  output_path = "${path.module}/lambda_function.zip"
+  
+  # Exclude unnecessary files
+  excludes = [
+    "__pycache__",
+    "*.pyc",
+    ".coverage",
+    ".pytest_cache"
+  ]
 }
 
-# Update the existing Lambda function's configuration
-resource "aws_lambda_function" "update_lambda_config" {
-  function_name = data.aws_lambda_function.existing_lambda.function_name
-  
-  # We need to reference the existing Lambda's properties
-  # but update only what we need to change
-  role             = data.aws_lambda_function.existing_lambda.role
-  handler          = data.aws_lambda_function.existing_lambda.handler
-  runtime          = data.aws_lambda_function.existing_lambda.runtime
-  filename         = data.aws_lambda_function.existing_lambda.filename
-  source_code_hash = data.aws_lambda_function.existing_lambda.source_code_hash
-  
+# Create the Lambda function using the LabRole
+resource "aws_lambda_function" "fastapi_lambda" {
+  function_name    = "FastAPIApplication"
+  filename         = data.archive_file.lambda_zip.output_path
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  role             = "arn:aws:iam::030764292549:role/LabRole"
+  handler          = "lambda_handler.handler"
+  runtime          = var.lambda_runtime
+  memory_size      = var.lambda_memory_size
+  timeout          = var.lambda_timeout
+
   environment {
     variables = {
       DB_HOST     = data.aws_db_instance.existing.address
@@ -71,17 +80,7 @@ resource "aws_lambda_function" "update_lambda_config" {
     subnet_ids         = var.private_subnet_ids
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
-  
-  memory_size = 512
-  timeout     = 60
 }
-
-# Keep this for reference, but don't use it to create a new Lambda
-# data "archive_file" "lambda_zip" {
-#   type        = "zip"
-#   source_dir  = "${path.module}/../t1_cs"
-#   output_path = "${path.module}/lambda_function.zip"
-# }
 
 # Use existing Lambda function instead of creating a new one
 # resource "aws_lambda_function" "fastapi_lambda" {
@@ -135,7 +134,7 @@ resource "aws_apigatewayv2_stage" "api_stage" {
 resource "aws_apigatewayv2_integration" "lambda_integration" {
   api_id             = aws_apigatewayv2_api.api_gateway.id
   integration_type   = "AWS_PROXY"
-  integration_uri    = data.aws_lambda_function.existing_lambda.invoke_arn
+  integration_uri    = aws_lambda_function.fastapi_lambda.invoke_arn
   integration_method = "POST"
   payload_format_version = "1.0"
 }
@@ -155,7 +154,7 @@ resource "aws_apigatewayv2_route" "root_route" {
 resource "aws_lambda_permission" "api_gateway_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = data.aws_lambda_function.existing_lambda.function_name
+  function_name = aws_lambda_function.fastapi_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.api_gateway.execution_arn}/*/*"
 }
@@ -181,14 +180,8 @@ resource "aws_iam_policy" "lambda_rds_access" {
   policy      = data.aws_iam_policy_document.lambda_rds_access.json
 }
 
-# Attach the policy to the Lambda role
+# Attach the policy to the LabRole
 resource "aws_iam_role_policy_attachment" "lambda_rds_access" {
-  role       = split("/", data.aws_lambda_function.existing_lambda.role)[1]
+  role       = "LabRole"
   policy_arn = aws_iam_policy.lambda_rds_access.arn
-}
-
-# Add VPC access policy to Lambda role
-resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
-  role       = split("/", data.aws_lambda_function.existing_lambda.role)[1]
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
