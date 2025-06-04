@@ -1,12 +1,13 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date
+from typing import Optional
 from app.schemas.class_schema import ClassResponse
 from app.schemas.room import RoomResponse
 from app.schemas.discipline import DisciplineResponse
 
 class LessonBase(BaseModel):
     date: date
-    attendance: str | None = None
+    attendance: Optional[str] = None
 
 class LessonCreate(LessonBase):
     class_id: int
@@ -14,7 +15,7 @@ class LessonCreate(LessonBase):
     discipline_id: int
 
 class LessonUpdate(LessonBase):
-    attendance: str | None = None
+    attendance: Optional[str] = None
 
 class LessonResponse(LessonBase):
     id: int
