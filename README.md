@@ -108,16 +108,37 @@ pytest t1_cs/tests/ --cov=t1_cs/app
 
 ## CI/CD Pipeline
 
-The project uses GitHub Actions for CI/CD:
+The project uses GitHub Actions for CI/CD with a workflow defined in `.github/workflows/ci-cd.yml`:
 
-1. **Continuous Integration**:
-   - Runs tests on every push and pull request
-   - Ensures code quality and functionality
+### Workflow Triggers
 
-2. **Continuous Deployment**:
-   - Automatically deploys to AWS on merges to main
-   - Applies Terraform changes to provision all infrastructure
+- **Push to main branch**: Triggers full CI/CD pipeline (build, test, deploy)
+- **Pull Requests**: Triggers build and test jobs only
+
+### Pipeline Stages
+
+1. **Build and Test**:
+   - Sets up Python 3.9 environment
+   - Installs project dependencies
+   - Runs unit tests for models, repositories, and services
+   - Runs database tests
+   - Generates and uploads test coverage reports
+   - Builds and tests Docker image
+
+2. **Deploy to AWS** (only on push to main):
+   - Configures AWS credentials
+   - Sets up Terraform
+   - Validates Terraform configuration
+   - Plans Terraform changes
+   - Applies Terraform changes to provision/update infrastructure
    - Tests the deployed API endpoints
+   - Sends deployment notifications
+
+### Error Handling and Notifications
+
+- Failed tests or deployments trigger notifications
+- Test results and logs are available in GitHub Actions
+- Deployment status is reported via Slack (if configured)
 
 ### Required GitHub Secrets
 
@@ -127,13 +148,9 @@ For the CI/CD pipeline to work, you need to set up the following secrets in your
 |-------------|-------------|
 | `AWS_ACCESS_KEY_ID` | AWS access key with permissions to deploy resources |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret access key |
-| `AWS_SESSION_TOKEN` | AWS session token (if using temporary credentials) |
-| `VPC_ID` | ID of the VPC where resources will be deployed |
-| `SUBNET_ID_1` | ID of the first private subnet |
-| `SUBNET_ID_2` | ID of the second private subnet |
-| `DB_USERNAME` | Database username |
-| `DB_PASSWORD` | Database password |
-| `TF_STATE_BUCKET` | S3 bucket name for storing Terraform state |
+| `DB_USERNAME` | Database username for RDS |
+| `DB_PASSWORD` | Database password for RDS |
+| `SLACK_WEBHOOK` | (Optional) Webhook URL for Slack notifications |
 
 ## Testing
 

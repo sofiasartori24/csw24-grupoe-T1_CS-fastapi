@@ -7,9 +7,9 @@ data "aws_db_instance" "existing" {
 
 # Create a security group for Lambda to access RDS
 resource "aws_security_group" "lambda_sg" {
-  name        = "lambda-to-rds-sg"
+  name        = "lambda-to-rds-sg-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   description = "Security group for Lambda function to access RDS"
-  vpc_id      = var.vpc_id  # Use the same VPC as the RDS instance
+  vpc_id      = "vpc-0f53830436b086840"  # Hardcoded VPC ID
   
   egress {
     from_port   = 0
@@ -82,7 +82,11 @@ resource "aws_lambda_function" "fastapi_lambda" {
   
   # Add VPC configuration to allow Lambda to access RDS
   vpc_config {
-    subnet_ids         = var.private_subnet_ids
+    subnet_ids         = [
+      "subnet-094b48a14e397a2e8",
+      "subnet-0722195fdb9cc24a9",
+      "subnet-0c5f6ffdd0abc5587"
+    ]
     security_group_ids = [aws_security_group.lambda_sg.id]
   }
   

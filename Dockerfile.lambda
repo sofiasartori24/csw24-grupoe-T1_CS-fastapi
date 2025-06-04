@@ -1,0 +1,34 @@
+FROM public.ecr.aws/lambda/python:3.9 AS builder
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install build dependencies
+RUN yum install -y gcc python3-devel openssl-devel && \
+    yum clean all
+
+# Copy requirements first for better caching
+COPY t1_cs/requirements-lambda.txt ${LAMBDA_TASK_ROOT}/requirements.txt
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+
+# Final stage
+FROM public.ecr.aws/lambda/python:3.9
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Copy dependencies from builder stage
+COPY --from=builder /var/runtime /var/runtime
+COPY --from=builder /var/lang /var/lang
+COPY --from=builder /var/task /var/task
+
+# Copy application code
+COPY t1_cs/app ${LAMBDA_TASK_ROOT}/app
+COPY t1_cs/lambda_handler.py ${LAMBDA_TASK_ROOT}/
+
+# Set the handler
+CMD ["lambda_handler.lambda_handler"]

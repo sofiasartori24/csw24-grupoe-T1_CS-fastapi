@@ -7,281 +7,131 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  build-and-test:
+    name: Build and Test
     runs-on: ubuntu-latest
     
     services:
+      # Use MySQL service container for integration tests if needed
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: rootpassword
-          MYSQL_DATABASE: resources_management
-          MYSQL_USER: user
-          MYSQL_PASSWORD: password
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test_db
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
-    steps:
-    - uses: actions/checkout@v3
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pytest pytest-cov
-        pip install -r t1_cs/requirements.txt
-        
-    - name: Run tests
-      env:
-        DB_HOST: localhost
-        DB_USER: user
-        DB_PASSWORD: password
-        DB_NAME: resources_management
-      run: |
-        pytest t1_cs/tests/ --cov=t1_cs/app
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r t1_cs/requirements.txt
+          pip install pytest pytest-cov
+      
+      - name: Run unit tests
+        run: |
+          pytest t1_cs/tests/test_models.py t1_cs/tests/test_repositories.py t1_cs/tests/test_services.py --cov=t1_cs/app --cov-report=xml
+      
+      - name: Run database tests
+        run: |
+          pytest t1_cs/tests/test_database.py --cov=t1_cs/app --cov-append --cov-report=xml
+      
+      - name: Upload test coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage.xml
+      
+      - name: Build Docker image
+        run: |
+          docker build -t fastapi-app:${{ github.sha }} .
+      
+      - name: Test Docker image
+        run: |
+          docker run --name test-container -d -p 8000:8000 fastapi-app:${{ github.sha }}
+          sleep 5
+          curl -s http://localhost:8000/health || echo "Health check failed"
+          docker stop test-container
+          docker rm test-container
 
-  build-and-deploy:
-    needs: test
+  deploy:
+    name: Deploy to AWS
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-        aws-region: us-east-1
-    
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: 1.0.0
-    
-    - name: Create Terraform Variables File
-      run: |
-        # Use VPC ID and Subnet IDs from GitHub secrets
-        VPC_ID="${{ secrets.VPC_ID }}"
-        SUBNET_ID_1="${{ secrets.SUBNET_ID_1 }}"
-        SUBNET_ID_2="${{ secrets.SUBNET_ID_2 }}"
-        
-        # Use default values if secrets are not set
-        if [[ -z "$VPC_ID" ]]; then
-          VPC_ID="vpc-0123456789abcdef0"
-          echo "Using default VPC ID: $VPC_ID"
-        else
-          echo "Using VPC ID from secrets: $VPC_ID"
-        fi
-        
-        if [[ -z "$SUBNET_ID_1" || -z "$SUBNET_ID_2" ]]; then
-          SUBNET_ID_1="subnet-0123456789abcdef0"
-          SUBNET_ID_2="subnet-0123456789abcdef1"
-          echo "Using default Subnet IDs: $SUBNET_ID_1, $SUBNET_ID_2"
-        else
-          echo "Using Subnet IDs from secrets: $SUBNET_ID_1, $SUBNET_ID_2"
-        fi
-        
-        # Use the actual RDS endpoint from the Terraform output
-        RDS_ENDPOINT="resources-management-db.cffobfgdtrxg.us-east-1.rds.amazonaws.com"
-        echo "Using actual RDS endpoint: $RDS_ENDPOINT"
-        
-        cat > terraform/terraform.auto.tfvars <<EOF
-        vpc_id = "$VPC_ID"
-        private_subnet_ids = ["$SUBNET_ID_1", "$SUBNET_ID_2"]
-        db_name = "resources_management"
-        db_username = "${{ secrets.DB_USERNAME || 'user' }}"
-        db_password = "${{ secrets.DB_PASSWORD || 'password' }}"
-        region = "us-east-1"
-        db_host = "$RDS_ENDPOINT"
-        EOF
-    
-    - name: Terraform Init
-      run: |
-        cd terraform
-        # Check if TF_STATE_BUCKET is set
-        if [[ -n "${{ secrets.TF_STATE_BUCKET }}" ]]; then
-          echo "Using S3 backend with bucket: ${{ secrets.TF_STATE_BUCKET }}"
-          terraform init -upgrade \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
-            -backend-config="key=resources-management/terraform.tfstate" \
-            -backend-config="region=us-east-1"
-        else
-          echo "WARNING: TF_STATE_BUCKET is not set. Using local backend which may cause issues in CI/CD."
-          terraform init -upgrade
-        fi
-    
-    - name: Terraform Validate
-      run: |
-        cd terraform
-        terraform validate
-    
-    - name: Terraform Plan
-      run: |
-        cd terraform
-        terraform plan -out=tfplan
-    
-    - name: Terraform Apply
-      run: |
-        cd terraform
-        terraform apply -auto-approve tfplan
-    
-    - name: Get API Gateway URL
-      id: get_url
-      run: |
-        cd terraform
-        
-        # Use a temporary file to capture the output
-        terraform output -raw api_gateway_url > api_url.txt 2>/dev/null || echo "" > api_url.txt
-        cat api_url.txt
-        
-        # Extract just the URL part before any debug information
-        CLEAN_URL=$(grep -o 'https://[^:]*' api_url.txt | head -1 || echo "")
-        echo "Extracted URL: $CLEAN_URL"
-        
-        # Get Lambda function name using raw output to a file
-        echo "Getting Lambda function name..."
-        terraform output -raw lambda_function_name > lambda_function.txt 2>/dev/null || echo "" > lambda_function.txt
-        cat lambda_function.txt
-        
-        # Extract just the function name part before any debug information
-        LAMBDA_FUNCTION=$(grep -o '^[^:]*' lambda_function.txt | head -1 || echo "")
-        echo "Extracted Lambda function: $LAMBDA_FUNCTION"
-        
-        # Manually set the values if we know what they should be
-        if [[ -z "$CLEAN_URL" ]]; then
-          echo "URL extraction failed, using hardcoded value"
-          CLEAN_URL="https://ahal70x3m8.execute-api.us-east-1.amazonaws.com/Prod"
-        fi
-        
-        if [[ -z "$LAMBDA_FUNCTION" ]]; then
-          echo "Lambda function extraction failed, using hardcoded value"
-          LAMBDA_FUNCTION="FastAPIApplication"
-        fi
-        
-        # Set outputs for use in later steps (GitHub Actions specific syntax)
-        echo "api_url=$CLEAN_URL" >> "$GITHUB_OUTPUT"
-        echo "lambda_function=$LAMBDA_FUNCTION" >> "$GITHUB_OUTPUT"
-        
-        # Export as environment variables for this job
-        echo "API_URL=$CLEAN_URL" >> "$GITHUB_ENV"
-        echo "LAMBDA_FUNCTION=$LAMBDA_FUNCTION" >> "$GITHUB_ENV"
-    
-    - name: Wait for Lambda to be ready
-      run: |
-        echo "Waiting for Lambda function to be fully deployed..."
-        echo "Waiting 60 seconds for Lambda cold start and API Gateway propagation..."
-        sleep 60
-    
-    - name: Test API Deployment
-      run: |
-        echo "Testing API endpoints..."
-        
-        # Get the API URL from the previous step's outputs or environment variable
-        API_URL="${{ steps.get_url.outputs.api_url }}"
-        # Fallback to environment variable if output is empty
-        if [[ -z "$API_URL" ]]; then
-          API_URL="${{ env.API_URL }}"
-          echo "Using API_URL from environment variable"
-        fi
-        
-        # Validate API_URL before testing
-        if [[ -z "$API_URL" || ! "$API_URL" =~ ^https?:// ]]; then
-          echo "Error: Invalid or missing API_URL: '$API_URL'"
-          echo "Skipping API tests"
-          exit 0
-        fi
-        
-        echo "Using API URL: $API_URL"
-        
-        # Test the root endpoint
-        echo "Testing root endpoint..."
-        ROOT_RESPONSE=$(curl -s "$API_URL" || echo "Connection failed")
-        echo "Root endpoint response: $ROOT_RESPONSE"
-        
-        # Test the health endpoint
-        echo "Testing health endpoint..."
-        HEALTH_RESPONSE=$(curl -s "$API_URL/health" || echo "Connection failed")
-        echo "Health endpoint response: $HEALTH_RESPONSE"
-        
-        # Check if responses are valid - improved error detection
-        if [[ "$ROOT_RESPONSE" == *"error"* || "$ROOT_RESPONSE" == *"Error"* ||
-              "$HEALTH_RESPONSE" == *"error"* || "$HEALTH_RESPONSE" == *"Error"* ||
-              "$ROOT_RESPONSE" == *"Not Found"* ||
-              "$ROOT_RESPONSE" == "Connection failed" || "$HEALTH_RESPONSE" == "Connection failed" ]]; then
-          echo "API tests failed!"
-          # Don't fail the workflow, just report the issue
-          echo "::warning::API tests failed but continuing workflow"
-          
-          # Print detailed error information for debugging
-          echo "Root endpoint error: $ROOT_RESPONSE"
-          echo "Health endpoint error: $HEALTH_RESPONSE"
-          
-          # This is important for debugging - don't remove
-          echo "The API is returning errors. This might be due to:"
-          echo "1. Lambda function configuration issues"
-          echo "2. Database connection problems"
-          echo "3. API Gateway routing issues"
-          echo "Check the Lambda logs for more details."
-        else
-          echo "API tests passed!"
-        fi
-    
-    - name: Check Lambda Logs
-      run: |
-        echo "Checking Lambda logs for errors..."
-        
-        # Get the Lambda function name from the previous step's outputs or environment variable
-        LAMBDA_FUNCTION="${{ steps.get_url.outputs.lambda_function }}"
-        # Fallback to environment variable if output is empty
-        if [[ -z "$LAMBDA_FUNCTION" ]]; then
-          LAMBDA_FUNCTION="${{ env.LAMBDA_FUNCTION }}"
-          echo "Using LAMBDA_FUNCTION from environment variable"
-        fi
-        
-        # Validate LAMBDA_FUNCTION before checking logs
-        if [[ -z "$LAMBDA_FUNCTION" ]]; then
-          echo "Error: Missing LAMBDA_FUNCTION variable"
-          echo "Skipping Lambda logs check"
-          exit 0
-        fi
-        
-        echo "Using Lambda function: $LAMBDA_FUNCTION"
-        
-        # Try to check logs but handle permission errors gracefully
-        echo "Attempting to check Lambda logs..."
-        
-        # Check if log group exists
-        LOG_GROUP_CHECK=$(aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/$LAMBDA_FUNCTION" --query 'logGroups[0].logGroupName' --output text 2>&1 || echo "ERROR")
-        
-        if [[ "$LOG_GROUP_CHECK" == *"ERROR"* || "$LOG_GROUP_CHECK" == *"UnauthorizedOperation"* ]]; then
-          echo "Warning: Unable to check Lambda logs due to permission issues"
-          echo "This is not critical - the deployment may still be successful"
-          exit 0
-        fi
-        
-        if [[ "$LOG_GROUP_CHECK" == "None" ]]; then
-          echo "Log group for Lambda function $LAMBDA_FUNCTION does not exist yet"
-          echo "Skipping Lambda logs check"
-          exit 0
-        fi
-        
-        # Get the latest log stream
-        LOG_STREAM=$(aws logs describe-log-streams --log-group-name "/aws/lambda/$LAMBDA_FUNCTION" --order-by LastEventTime --descending --limit 1 --query 'logStreams[0].logStreamName' --output text 2>/dev/null || echo "")
-        
-        if [[ -z "$LOG_STREAM" || "$LOG_STREAM" == "None" ]]; then
-          echo "No log streams found for Lambda function $LAMBDA_FUNCTION"
-          echo "Skipping Lambda logs check"
-          exit 0
-        fi
-        
-        # Get log events
-        echo "Retrieving logs from stream: $LOG_STREAM"
-        aws logs get-log-events --log-group-name "/aws/lambda/$LAMBDA_FUNCTION" --log-stream-name="$LOG_STREAM" --limit 10 2>/dev/null || echo "Unable to retrieve log events"
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.0.0
+      
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+      
+      - name: Terraform Validate
+        working-directory: ./terraform
+        run: terraform validate
+      
+      - name: Terraform Plan
+        working-directory: ./terraform
+        run: terraform plan -var-file=terraform.tfvars
+        env:
+          TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_environment: "prod"
+      
+      - name: Terraform Apply
+        working-directory: ./terraform
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve -var-file=terraform.tfvars
+        env:
+          TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_environment: "prod"
+      
+      - name: Get API Gateway URL
+        working-directory: ./terraform
+        run: |
+          echo "API_URL=$(terraform output -raw api_gateway_url)" >> $GITHUB_ENV
+      
+      - name: Wait for deployment to complete
+        run: |
+          echo "Waiting for Lambda function to be fully deployed..."
+          sleep 30
+      
+      - name: Test deployed API
+        run: |
+          echo "Testing API at ${{ env.API_URL }}"
+          curl -s ${{ env.API_URL }}/health
+      
+      - name: Send deployment notification
+        if: always()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: deployments
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: Deployment ${{ job.status }}
+          SLACK_MESSAGE: "API deployed to ${{ env.API_URL }}"
