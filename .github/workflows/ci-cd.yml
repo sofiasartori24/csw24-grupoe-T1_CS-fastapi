@@ -210,11 +210,25 @@ jobs:
         HEALTH_RESPONSE=$(curl -s "$API_URL/health" || echo "Connection failed")
         echo "Health endpoint response: $HEALTH_RESPONSE"
         
-        # Check if responses are valid
-        if [[ "$ROOT_RESPONSE" == *"error"* || "$HEALTH_RESPONSE" == *"error"* || "$ROOT_RESPONSE" == "Connection failed" || "$HEALTH_RESPONSE" == "Connection failed" ]]; then
+        # Check if responses are valid - improved error detection
+        if [[ "$ROOT_RESPONSE" == *"error"* || "$ROOT_RESPONSE" == *"Error"* ||
+              "$HEALTH_RESPONSE" == *"error"* || "$HEALTH_RESPONSE" == *"Error"* ||
+              "$ROOT_RESPONSE" == *"Not Found"* ||
+              "$ROOT_RESPONSE" == "Connection failed" || "$HEALTH_RESPONSE" == "Connection failed" ]]; then
           echo "API tests failed!"
           # Don't fail the workflow, just report the issue
           echo "::warning::API tests failed but continuing workflow"
+          
+          # Print detailed error information for debugging
+          echo "Root endpoint error: $ROOT_RESPONSE"
+          echo "Health endpoint error: $HEALTH_RESPONSE"
+          
+          # This is important for debugging - don't remove
+          echo "The API is returning errors. This might be due to:"
+          echo "1. Lambda function configuration issues"
+          echo "2. Database connection problems"
+          echo "3. API Gateway routing issues"
+          echo "Check the Lambda logs for more details."
         else
           echo "API tests passed!"
         fi
