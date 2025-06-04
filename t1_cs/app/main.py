@@ -1,5 +1,8 @@
-from app.database import SessionLocal, init_db
-from fastapi import FastAPI
+from app.database import SessionLocal, init_db, get_db_with_retry
+from sqlalchemy import text
+from fastapi import FastAPI, Depends, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 from app.routers.reservation import ReservationRouter
 from app.routers.profile import ProfileRouter
 from app.routers.user import UserRouter
@@ -13,18 +16,103 @@ from app.routers.class_router import ClassRouter
 from app.routers.lesson import LessonRouter
 from app.routers.resource import ResourceRouter
 from app.script import populate_profiles_and_user, populate_all
+import logging
+import os
+import traceback
+from sqlalchemy.exc import SQLAlchemyError, OperationalError, DatabaseError
+import pymysql
 
+# Configure logging
+logger = logging.getLogger("app")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(handler)
+
+# Create FastAPI app
 app = FastAPI()
 
-init_db()
-db = SessionLocal()
-try:
-    populate_profiles_and_user(db)
-    populate_all(db)
-    
-finally:
-    db.close()
+# Database dependency with retry logic
+def get_db():
+    db = None
+    try:
+        # Use our retry-enabled function to get a database connection
+        db = get_db_with_retry()
+        yield db
+    except Exception as e:
+        logger.error(f"Database connection error: {str(e)}")
+        if db:
+            db.close()
+        raise
+    finally:
+        if db:
+            db.close()
+
+# Middleware to handle database connection errors
+@app.middleware("http")
+async def db_session_middleware(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except (SQLAlchemyError, OperationalError, DatabaseError, pymysql.Error) as e:
+        logger.error(f"Database error in request: {str(e)}\n{traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Database error", "message": str(e)},
+        )
+    except Exception as e:
+        logger.error(f"Request failed: {str(e)}\n{traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "message": str(e)},
+        )
+
+# Admin endpoint to initialize database (only run when needed)
+@app.post("/admin/init-db")
+def initialize_database(db: Session = Depends(get_db)):
+    """
+    Admin endpoint to initialize the database.
+    This should be called explicitly rather than during app startup.
+    """
+    try:
+        # Initialize database schema
+        init_db()
         
+        # Populate initial data
+        populate_profiles_and_user(db)
+        populate_all(db)
+        
+        return {"message": "Database initialized successfully"}
+    except Exception as e:
+        logger.error(f"Database initialization failed: {str(e)}\n{traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Database initialization failed", "message": str(e)},
+        )
+
+# Health check endpoint
+@app.get("/health")
+def health_check():
+    """Simple health check endpoint that doesn't require database access"""
+    return {"status": "healthy"}
+
+# Database status endpoint
+@app.get("/db-status")
+def db_status(db: Session = Depends(get_db)):
+    """Check database connectivity"""
+    try:
+        # Execute a simple query to test the connection
+        result = db.execute(text("SELECT 1")).scalar()
+        return {"status": "connected", "result": result}
+    except Exception as e:
+        logger.error(f"Database status check failed: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "disconnected", "error": str(e)},
+        )
+
+# Include all routers
 reservation = ReservationRouter()
 app.include_router(reservation.router)
 

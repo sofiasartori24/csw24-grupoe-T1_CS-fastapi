@@ -1,43 +1,52 @@
-variable "ami_id" {
-  description = "ID da imagem AMI"
-  default     = "ami-0c55b159cbfafe1f0"
-}
-
-variable "instance_type" {
-  default = "t2.micro"
-}
-
-variable "key_name" {
-  description = "Nome da chave SSH"
-  default     = "construcao"
-}
-
-# variables.tf
-
 variable "vpc_id" {
-  description = "ID da VPC onde RDS e Lambda rodarão"
+  description = "ID of the VPC where RDS and Lambda will run"
   type        = string
 }
 
 variable "private_subnet_ids" {
-  description = "Lista de IDs das subnets privadas onde RDS e Lambda ficarão"
+  description = "List of IDs of the private subnets where RDS and Lambda will run"
   type        = list(string)
 }
 
 variable "db_name" {
-  description = "Nome do banco de dados MySQL"
+  description = "Name of the MySQL database"
   type        = string
   default     = "resources_management"
 }
 
 variable "db_username" {
-  description = "Usuário MySQL"
+  description = "MySQL username"
   type        = string
   default     = "user"
 }
 
 variable "db_password" {
-  description = "Senha do usuário MySQL"
+  description = "MySQL user password"
   type        = string
   default     = "password"
+  sensitive   = true
+}
+
+variable "lambda_memory_size" {
+  description = "Memory size for the Lambda function in MB"
+  type        = number
+  default     = 512
+}
+
+variable "lambda_timeout" {
+  description = "Timeout for the Lambda function in seconds"
+  type        = number
+  default     = 60
+}
+
+variable "lambda_runtime" {
+  description = "Runtime for the Lambda function"
+  type        = string
+  default     = "python3.9"
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
 }
