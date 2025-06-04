@@ -15,4 +15,4 @@ lambda_runtime     = "python3.9"
 region = "us-east-1"
 
 # Hostname of the existing RDS instance
-db_host = "resources-management-db.xxxxxxxxxx.us-east-1.rds.amazonaws.com"
+db_host = "resources-management-db.cffobfgdtrxg.us-east-1.rds.amazonaws.com"
