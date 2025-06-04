@@ -28,7 +28,7 @@ resource "aws_lambda_function" "fastapi_lambda" {
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   role             = "arn:aws:iam::030764292549:role/LabRole"
-  handler          = "lambda_handler.handler"
+  handler          = "simple_lambda_handler.handler"
   runtime          = var.lambda_runtime
   memory_size      = var.lambda_memory_size
   timeout          = var.lambda_timeout
@@ -39,10 +39,17 @@ resource "aws_lambda_function" "fastapi_lambda" {
       DB_USER     = var.db_username
       DB_PASSWORD = var.db_password
       DB_NAME     = var.db_name
+      # Add debug environment variables
+      DEBUG       = "true"
+      LOG_LEVEL   = "DEBUG"
     }
   }
   
-  # Removed VPC configuration to avoid subnet and security group issues
+  # Add layers for dependencies
+  layers = [
+    "arn:aws:lambda:us-east-1:898466741470:layer:psycopg2-py38:1",  # PostgreSQL adapter
+    "arn:aws:lambda:us-east-1:770693421928:layer:Klayers-python38-SQLAlchemy:1"  # SQLAlchemy
+  ]
 }
 
 # Use existing Lambda function instead of creating a new one
