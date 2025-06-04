@@ -76,15 +76,34 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     request_id = context.aws_request_id if hasattr(context, 'aws_request_id') else None
     
     # Log the incoming request (only basic info to avoid large logs)
-    path = event.get('path', 'UNKNOWN')
-    method = event.get('httpMethod', 'UNKNOWN')
+    path = event.get('path', event.get('rawPath', 'UNKNOWN'))
+    method = event.get('httpMethod', event.get('requestContext', {}).get('http', {}).get('method', 'UNKNOWN'))
     logger.info(f"Request received: {method} {path} (Request ID: {request_id})")
     
+    # Log environment variables for debugging
+    logger.debug("Environment variables:")
+    for key, value in os.environ.items():
+        if key.startswith('DB_'):
+            # Mask sensitive information
+            logger.debug(f"  {key}: {'*' * len(value)}")
+        else:
+            logger.debug(f"  {key}: {value}")
+    
     # Special handling for health check endpoint to avoid database access
-    if path == '/health' and method == 'GET':
+    if path == '/health' or path.endswith('/health'):
+        logger.info("Handling health check endpoint")
         return {
             "statusCode": 200,
             "body": json.dumps({"status": "healthy"}),
+            "headers": {"Content-Type": "application/json"}
+        }
+    
+    # Special handling for root endpoint
+    if path == '/' or path == '' or path.endswith('/Prod'):
+        logger.info("Handling root endpoint")
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"message": "Hello, World!"}),
             "headers": {"Content-Type": "application/json"}
         }
     
