@@ -122,25 +122,32 @@ jobs:
       run: |
         cd terraform
         
-        API_URL=$(terraform output -json api_gateway_url | jq -r '.')
+        # Use raw output instead of JSON to avoid parsing issues
+        API_URL=$(terraform output -raw api_gateway_url || echo "")
         echo "Raw API URL: $API_URL"
         
         # Clean the URL - remove any debug info or extra text
-        CLEAN_URL=$(echo "$API_URL" | grep -o 'https://[^[:space:]]*' | head -1)
+        CLEAN_URL=$(echo "$API_URL" | grep -o 'https://[^[:space:]]*' | head -1 || echo "")
+        if [[ -z "$CLEAN_URL" ]]; then
+          # Try another pattern if the first one fails
+          CLEAN_URL=$(echo "$API_URL" | grep -o 'https://[^:]*' | head -1 || echo "")
+        fi
         echo "Cleaned URL: $CLEAN_URL"
         
-        # Get Lambda function name
+        # Get Lambda function name using raw output
         echo "Getting Lambda function name..."
-        LAMBDA_FUNCTION=$(terraform output -json lambda_function_name | jq -r '.')
+        LAMBDA_FUNCTION=$(terraform output -raw lambda_function_name || echo "")
         echo "Lambda function: $LAMBDA_FUNCTION"
         
         # Set outputs for use in later steps (GitHub Actions specific syntax)
-        echo "api_url=$CLEAN_URL" >> $GITHUB_OUTPUT
-        echo "lambda_function=$LAMBDA_FUNCTION" >> $GITHUB_OUTPUT
+        # Use printf to ensure proper escaping of special characters
+        printf "api_url=%s\n" "$CLEAN_URL" >> $GITHUB_OUTPUT
+        printf "lambda_function=%s\n" "$LAMBDA_FUNCTION" >> $GITHUB_OUTPUT
         
         # Export as environment variables for this job
-        echo "API_URL=$CLEAN_URL" >> $GITHUB_ENV
-        echo "LAMBDA_FUNCTION=$LAMBDA_FUNCTION" >> $GITHUB_ENV
+        # Use printf to ensure proper escaping of special characters
+        printf "API_URL=%s\n" "$CLEAN_URL" >> $GITHUB_ENV
+        printf "LAMBDA_FUNCTION=%s\n" "$LAMBDA_FUNCTION" >> $GITHUB_ENV
     
     - name: Wait for Lambda to be ready
       run: |
@@ -151,8 +158,13 @@ jobs:
       run: |
         echo "Testing API endpoints..."
         
-        # Get the API URL from the previous step's outputs
+        # Get the API URL from the previous step's outputs or environment variable
         API_URL="${{ steps.get_url.outputs.api_url }}"
+        # Fallback to environment variable if output is empty
+        if [[ -z "$API_URL" ]]; then
+          API_URL="${{ env.API_URL }}"
+          echo "Using API_URL from environment variable"
+        fi
         
         # Validate API_URL before testing
         if [[ -z "$API_URL" || ! "$API_URL" =~ ^https?:// ]]; then
@@ -186,8 +198,13 @@ jobs:
       run: |
         echo "Checking Lambda logs for errors..."
         
-        # Get the Lambda function name from the previous step's outputs
+        # Get the Lambda function name from the previous step's outputs or environment variable
         LAMBDA_FUNCTION="${{ steps.get_url.outputs.lambda_function }}"
+        # Fallback to environment variable if output is empty
+        if [[ -z "$LAMBDA_FUNCTION" ]]; then
+          LAMBDA_FUNCTION="${{ env.LAMBDA_FUNCTION }}"
+          echo "Using LAMBDA_FUNCTION from environment variable"
+        fi
         
         # Validate LAMBDA_FUNCTION before checking logs
         if [[ -z "$LAMBDA_FUNCTION" ]]; then
