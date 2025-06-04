@@ -97,6 +97,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_REGION: us-east-1
         run: |
           echo "::warning::Checking AWS credentials..."
@@ -104,7 +105,7 @@ jobs:
             echo "AWS credentials are valid"
             echo "aws_creds_valid=true" >> $GITHUB_OUTPUT
           else
-            echo "::error::AWS credentials are invalid or expired. Please update the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets."
+            echo "::error::AWS credentials are invalid or expired. For temporary credentials (Access Key ID starting with 'ASIA'), you need to provide AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_SESSION_TOKEN."
             echo "aws_creds_valid=false" >> $GITHUB_OUTPUT
           fi
       
@@ -114,6 +115,7 @@ jobs:
         run: |
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}" >> $GITHUB_ENV
           echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
           echo "AWS credentials set as environment variables"
       
