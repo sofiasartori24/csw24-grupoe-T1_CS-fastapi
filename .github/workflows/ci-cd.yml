@@ -131,13 +131,8 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          # Provide S3 backend configuration with proper bucket name format
-          # Replace slashes and other invalid characters in the repository name
-          REPO_NAME=$(echo "${{ github.repository }}" | tr '/' '-')
-          terraform init \
-            -backend-config="bucket=terraform-state-${{ github.repository_owner }}-$REPO_NAME" \
-            -backend-config="key=terraform.tfstate" \
-            -backend-config="region=us-east-1"
+          # Use local backend instead of S3 since the bucket doesn't exist
+          terraform init -backend=false
       
       # Validate Terraform only if AWS credentials are valid
       - name: Terraform Validate
