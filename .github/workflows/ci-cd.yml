@@ -138,8 +138,10 @@ jobs:
       - name: Create S3 bucket for Terraform state
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         run: |
-          # Create a unique bucket name
-          BUCKET_NAME="terraform-state-$(echo ${{ github.repository }} | tr '/' '-' | tr '[:upper:]' '[:lower:]')"
+          # Create a valid S3 bucket name (must be lowercase, no underscores, etc.)
+          # Use a hash of the repository name to ensure uniqueness and valid characters
+          REPO_HASH=$(echo "${{ github.repository }}" | md5sum | cut -c1-8)
+          BUCKET_NAME="tf-state-$REPO_HASH"
           echo "Using S3 bucket: $BUCKET_NAME"
           
           # Check if bucket exists
