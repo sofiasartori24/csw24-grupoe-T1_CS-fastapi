@@ -193,7 +193,10 @@ jobs:
       - name: Terraform Apply
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./terraform
-        run: terraform apply -auto-approve -var-file=terraform.tfvars
+        timeout-minutes: 15
+        run: |
+          # Add timeout to ensure the step doesn't run indefinitely
+          terraform apply -auto-approve -var-file=terraform.tfvars
         env:
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
