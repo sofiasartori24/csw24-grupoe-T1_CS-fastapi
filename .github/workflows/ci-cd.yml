@@ -134,16 +134,19 @@ jobs:
           # Use local backend instead of S3 since the bucket doesn't exist
           terraform init -backend=false
       
-      # Create a temporary backend.tf file to override the S3 backend
-      - name: Create local backend configuration
+      # Temporarily modify the provider.tf file to use a local backend
+      - name: Modify backend configuration
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          # Create a temporary backend.tf file that overrides the S3 backend
-          echo 'terraform {' > backend.tf
-          echo '  backend "local" {}' >> backend.tf
-          echo '}' >> backend.tf
-          cat backend.tf
+          # Backup the original provider.tf file
+          cp provider.tf provider.tf.bak
+          
+          # Replace the S3 backend with a local backend
+          sed -i 's/backend "s3" {/backend "local" {/' provider.tf
+          
+          # Show the modified file
+          cat provider.tf
       
       # Validate Terraform only if AWS credentials are valid
       - name: Terraform Validate
