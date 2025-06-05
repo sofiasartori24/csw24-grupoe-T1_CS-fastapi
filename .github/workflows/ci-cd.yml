@@ -134,6 +134,17 @@ jobs:
           # Use local backend instead of S3 since the bucket doesn't exist
           terraform init -backend=false
       
+      # Create a temporary backend.tf file to override the S3 backend
+      - name: Create local backend configuration
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        working-directory: ./terraform
+        run: |
+          # Create a temporary backend.tf file that overrides the S3 backend
+          echo 'terraform {' > backend.tf
+          echo '  backend "local" {}' >> backend.tf
+          echo '}' >> backend.tf
+          cat backend.tf
+      
       # Validate Terraform only if AWS credentials are valid
       - name: Terraform Validate
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
@@ -144,7 +155,7 @@ jobs:
       - name: Terraform Plan
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
-        run: terraform plan -backend=false -var-file=terraform.tfvars
+        run: terraform plan -var-file=terraform.tfvars
         env:
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
@@ -154,7 +165,7 @@ jobs:
       - name: Terraform Apply
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./terraform
-        run: terraform apply -backend=false -auto-approve -var-file=terraform.tfvars
+        run: terraform apply -auto-approve -var-file=terraform.tfvars
         env:
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
@@ -165,7 +176,7 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          echo "API_URL=$(terraform output -backend=false -raw api_gateway_url)" >> $GITHUB_ENV
+          echo "API_URL=$(terraform output -raw api_gateway_url)" >> $GITHUB_ENV
       
       # Wait for deployment only if AWS credentials are valid
       - name: Wait for deployment to complete
