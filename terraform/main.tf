@@ -7,7 +7,7 @@ data "aws_db_instance" "existing" {
 
 # Create a security group for Lambda to access RDS
 resource "aws_security_group" "lambda_sg" {
-  name        = "lambda-to-rds-sg-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  name        = "lambda-to-rds-sg-fixed"
   description = "Security group for Lambda function to access RDS"
   vpc_id      = "vpc-0f53830436b086840"  # Hardcoded VPC ID
   
@@ -24,6 +24,12 @@ resource "aws_security_group" "lambda_sg" {
     Environment = var.environment
     Project     = var.project_name
     ManagedBy   = "terraform"
+  }
+  
+  # Prevent recreation of the security group
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes = [name]
   }
 }
 
@@ -53,9 +59,9 @@ data "archive_file" "lambda_zip" {
   ]
 }
 
-# Create the Lambda function with a unique name to avoid conflicts
+# Create the Lambda function with a fixed name
 resource "aws_lambda_function" "fastapi_lambda" {
-  function_name    = "FastAPIApplication-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  function_name    = "FastAPIApplication-fixed"
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   role             = var.lambda_role_arn
@@ -63,6 +69,11 @@ resource "aws_lambda_function" "fastapi_lambda" {
   runtime          = var.lambda_runtime
   memory_size      = var.lambda_memory_size
   timeout          = var.lambda_timeout
+  
+  # Prevent recreation of the Lambda function
+  lifecycle {
+    ignore_changes = [function_name]
+  }
 
   environment {
     variables = {
@@ -168,6 +179,11 @@ resource "aws_lambda_permission" "api_gateway_permission" {
 resource "aws_cloudwatch_log_group" "lambda_logs" {
   name              = "/aws/lambda/${aws_lambda_function.fastapi_lambda.function_name}"
   retention_in_days = var.log_retention_days
+  
+  # Prevent recreation of the log group
+  lifecycle {
+    ignore_changes = [name]
+  }
 
   tags = {
     Name        = "lambda-logs"

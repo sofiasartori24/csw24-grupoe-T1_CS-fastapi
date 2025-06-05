@@ -163,12 +163,13 @@ jobs:
           # Store bucket name for later use
           echo "TF_BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
       
-      # Initialize Terraform with S3 backend
+      # Initialize Terraform with S3 backend and reconfigure to use new resource names
       - name: Terraform Init
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          terraform init \
+          # Use -reconfigure to reinitialize with the new fixed resource names
+          terraform init -reconfigure \
             -backend-config="bucket=${{ env.TF_BUCKET_NAME }}" \
             -backend-config="key=terraform.tfstate" \
             -backend-config="region=us-east-1"
