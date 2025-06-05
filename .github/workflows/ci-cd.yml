@@ -144,7 +144,7 @@ jobs:
       - name: Terraform Plan
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
-        run: terraform plan -var-file=terraform.tfvars
+        run: terraform plan -backend=false -var-file=terraform.tfvars
         env:
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
@@ -154,7 +154,7 @@ jobs:
       - name: Terraform Apply
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./terraform
-        run: terraform apply -auto-approve -var-file=terraform.tfvars
+        run: terraform apply -backend=false -auto-approve -var-file=terraform.tfvars
         env:
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
@@ -165,7 +165,7 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          echo "API_URL=$(terraform output -raw api_gateway_url)" >> $GITHUB_ENV
+          echo "API_URL=$(terraform output -backend=false -raw api_gateway_url)" >> $GITHUB_ENV
       
       # Wait for deployment only if AWS credentials are valid
       - name: Wait for deployment to complete
