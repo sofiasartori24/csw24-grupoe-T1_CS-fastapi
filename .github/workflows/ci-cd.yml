@@ -204,7 +204,10 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          echo "API_URL=$(terraform output -raw api_gateway_url)" >> $GITHUB_ENV
+          # Extract the API Gateway URL and ensure it's properly formatted
+          API_URL=$(terraform output -raw api_gateway_url | tr -d '\n' | tr -d '\r')
+          echo "API_URL=${API_URL}" >> $GITHUB_ENV
+          echo "API Gateway URL: ${API_URL}"
       
       # Wait for deployment only if AWS credentials are valid
       - name: Wait for deployment to complete
