@@ -134,19 +134,42 @@ jobs:
           # Use local backend instead of S3 since the bucket doesn't exist
           terraform init -backend=false
       
-      # Temporarily modify the provider.tf file to use a local backend
-      - name: Modify backend configuration
+      # Create S3 bucket for Terraform state if it doesn't exist
+      - name: Create S3 bucket for Terraform state
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        run: |
+          # Create a unique bucket name
+          BUCKET_NAME="terraform-state-$(echo ${{ github.repository }} | tr '/' '-' | tr '[:upper:]' '[:lower:]')"
+          echo "Using S3 bucket: $BUCKET_NAME"
+          
+          # Check if bucket exists
+          if aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null; then
+            echo "S3 bucket already exists"
+          else
+            echo "Creating S3 bucket: $BUCKET_NAME"
+            # Create bucket in us-east-1
+            aws s3api create-bucket --bucket $BUCKET_NAME --region us-east-1
+            
+            # Enable versioning
+            aws s3api put-bucket-versioning --bucket $BUCKET_NAME --versioning-configuration Status=Enabled
+            
+            # Wait for bucket to be fully created
+            echo "Waiting for bucket to be available..."
+            sleep 10
+          fi
+          
+          # Store bucket name for later use
+          echo "TF_BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
+      
+      # Initialize Terraform with S3 backend
+      - name: Terraform Init
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          # Backup the original provider.tf file
-          cp provider.tf provider.tf.bak
-          
-          # Replace the S3 backend with a local backend
-          sed -i 's/backend "s3" {/backend "local" {/' provider.tf
-          
-          # Show the modified file
-          cat provider.tf
+          terraform init \
+            -backend-config="bucket=${{ env.TF_BUCKET_NAME }}" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=us-east-1"
       
       # Validate Terraform only if AWS credentials are valid
       - name: Terraform Validate
