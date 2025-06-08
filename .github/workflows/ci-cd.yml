@@ -190,6 +190,34 @@ jobs:
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_environment: "prod"
       
+      # Check if RDS instance exists before applying Terraform
+      - name: Check RDS instance
+        id: check-rds
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        continue-on-error: true
+        run: |
+          # Check if the RDS instance exists
+          RDS_IDENTIFIER="resources-management-db"
+          echo "Checking if RDS instance '$RDS_IDENTIFIER' exists..."
+          
+          if aws rds describe-db-instances --db-instance-identifier "$RDS_IDENTIFIER" &>/dev/null; then
+            echo "RDS instance '$RDS_IDENTIFIER' exists"
+            echo "rds_exists=true" >> $GITHUB_OUTPUT
+            
+            # Get RDS endpoint
+            RDS_ENDPOINT=$(aws rds describe-db-instances \
+              --db-instance-identifier "$RDS_IDENTIFIER" \
+              --query "DBInstances[0].Endpoint.Address" \
+              --output text)
+            
+            echo "RDS endpoint: $RDS_ENDPOINT"
+            echo "rds_endpoint=$RDS_ENDPOINT" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::RDS instance '$RDS_IDENTIFIER' does not exist"
+            echo "This will likely cause the Lambda function to fail with 'Internal Server Error'"
+            echo "rds_exists=false" >> $GITHUB_OUTPUT
+          fi
+      
       # Apply Terraform only if AWS credentials are valid
       - name: Terraform Apply
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -230,12 +258,28 @@ jobs:
       
       # Initialize the database after deployment
       - name: Initialize database
+        id: init-db
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         continue-on-error: true
         run: |
           echo "Initializing database schema and populating initial data..."
           INIT_RESPONSE=$(curl -s -X POST "${{ env.API_URL }}/admin/init-db")
           echo "Database initialization response: $INIT_RESPONSE"
+          
+          # Check if initialization was successful
+          if [[ "$INIT_RESPONSE" == *"Database initialized successfully"* ]]; then
+            echo "Database initialization successful"
+            echo "db_init_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "Database initialization failed or returned an error"
+            echo "db_init_success=false" >> $GITHUB_OUTPUT
+            
+            # Check if the response contains an error message
+            if [[ "$INIT_RESPONSE" == *"Internal Server Error"* ]]; then
+              echo "::warning::Database initialization returned Internal Server Error"
+              echo "This may indicate a problem with the database connection"
+            fi
+          fi
           
           # Wait for database initialization to complete
           echo "Waiting for database initialization to complete..."
@@ -289,7 +333,7 @@ jobs:
         working-directory: ./terraform
         run: |
           # Extract Lambda function name from Terraform output
-          LAMBDA_FUNCTION_NAME=$(terraform output -raw lambda_function_name)
+          LAMBDA_FUNCTION_NAME=$(terraform output -raw lambda_function_name | tr -d '\n')
           LAMBDA_LOG_GROUP="/aws/lambda/$LAMBDA_FUNCTION_NAME"
           
           echo "Checking logs for Lambda function: $LAMBDA_FUNCTION_NAME"
@@ -365,10 +409,65 @@ jobs:
               
               if [[ -n "$RDS_IDENTIFIER" ]]; then
                 echo "Attempting to check RDS instance: $RDS_IDENTIFIER"
-                aws rds describe-db-instances \
+                RDS_INFO=$(aws rds describe-db-instances \
                   --db-instance-identifier "$RDS_IDENTIFIER" \
-                  --query "DBInstances[0].{Status:DBInstanceStatus, Engine:Engine, Endpoint:Endpoint.Address}" \
-                  --output json || echo "Could not find RDS instance with identifier: $RDS_IDENTIFIER"
+                  --query "DBInstances[0].{Status:DBInstanceStatus, Engine:Engine, Endpoint:Endpoint.Address, VpcId:DBSubnetGroup.VpcId}" \
+                  --output json 2>&1) || echo "Could not find RDS instance with identifier: $RDS_IDENTIFIER"
+                
+                echo "$RDS_INFO"
+                
+                # Check if RDS instance is in the same VPC as Lambda
+                if [[ "$RDS_INFO" == *"VpcId"* ]]; then
+                  RDS_VPC_ID=$(echo "$RDS_INFO" | jq -r '.VpcId // "unknown"')
+                  echo "RDS VPC ID: $RDS_VPC_ID"
+                  
+                  # Get Lambda VPC ID
+                  LAMBDA_VPC_INFO=$(aws lambda get-function-configuration \
+                    --function-name "$LAMBDA_FUNCTION_NAME" \
+                    --query "VpcConfig" \
+                    --output json)
+                  
+                  echo "Lambda VPC Config: $LAMBDA_VPC_INFO"
+                  
+                  LAMBDA_VPC_ID=$(echo "$LAMBDA_VPC_INFO" | jq -r '.VpcId // "unknown"')
+                  echo "Lambda VPC ID: $LAMBDA_VPC_ID"
+                  
+                  if [[ "$RDS_VPC_ID" != "$LAMBDA_VPC_ID" && "$LAMBDA_VPC_ID" != "unknown" && "$RDS_VPC_ID" != "unknown" ]]; then
+                    echo "::warning::RDS instance and Lambda function are in different VPCs"
+                    echo "RDS VPC: $RDS_VPC_ID, Lambda VPC: $LAMBDA_VPC_ID"
+                  fi
+                fi
+                
+                # Check security group rules
+                echo "=== Checking security group rules ==="
+                RDS_SG_ID=$(aws rds describe-db-instances \
+                  --db-instance-identifier "$RDS_IDENTIFIER" \
+                  --query "DBInstances[0].VpcSecurityGroups[0].VpcSecurityGroupId" \
+                  --output text 2>/dev/null)
+                
+                if [[ -n "$RDS_SG_ID" ]]; then
+                  echo "RDS Security Group ID: $RDS_SG_ID"
+                  
+                  # Check if Lambda security group can access RDS
+                  LAMBDA_SG_ID=$(echo "$LAMBDA_VPC_INFO" | jq -r '.SecurityGroupIds[0] // "unknown"')
+                  echo "Lambda Security Group ID: $LAMBDA_SG_ID"
+                  
+                  if [[ "$LAMBDA_SG_ID" != "unknown" ]]; then
+                    SG_RULES=$(aws ec2 describe-security-group-rules \
+                      --filter "Name=group-id,Values=$RDS_SG_ID" \
+                      --query "SecurityGroupRules[?FromPort==3306]" \
+                      --output json)
+                    
+                    echo "RDS Security Group Rules for port 3306: $SG_RULES"
+                    
+                    # Check if Lambda SG is allowed
+                    if [[ "$SG_RULES" == *"$LAMBDA_SG_ID"* ]]; then
+                      echo "Lambda security group is allowed to access RDS"
+                    else
+                      echo "::warning::Lambda security group may not have access to RDS"
+                    fi
+                  fi
+                fi
               else
                 echo "Could not extract RDS identifier from DB_HOST: $DB_HOST"
               fi
