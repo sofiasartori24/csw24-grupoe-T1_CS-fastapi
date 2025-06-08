@@ -237,12 +237,73 @@ jobs:
           RESPONSE=$(curl -s "${{ env.API_URL }}/health")
           echo "$RESPONSE"
           
-          # Check if response contains error messages
-          if [[ "$RESPONSE" == *"Not Found"* ]] || [[ "$RESPONSE" == *"error"* ]] || [[ -z "$RESPONSE" ]]; then
+          # Improved error detection - check for common error patterns and specific error messages
+          if [[ "$RESPONSE" == *"Not Found"* ]] || \
+             [[ "$RESPONSE" == *"error"* ]] || \
+             [[ "$RESPONSE" == *"Error"* ]] || \
+             [[ "$RESPONSE" == *"Internal Server Error"* ]] || \
+             [[ -z "$RESPONSE" ]]; then
             echo "API health check failed - received error response"
             exit 1
           fi
+          
+          # Also check for JSON error responses
+          if [[ "$RESPONSE" == *"\"message\""* && "$RESPONSE" == *"\"Internal Server Error\""* ]]; then
+            echo "API health check failed - received Internal Server Error"
+            exit 1
+          fi
+          
           echo "API health check successful"
+      
+      # Check Lambda function logs to diagnose issues
+      - name: Check Lambda function logs
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        working-directory: ./terraform
+        run: |
+          # Extract Lambda function name from Terraform output
+          LAMBDA_FUNCTION_NAME=$(terraform output -raw lambda_function_name)
+          LAMBDA_LOG_GROUP="/aws/lambda/$LAMBDA_FUNCTION_NAME"
+          
+          echo "Checking logs for Lambda function: $LAMBDA_FUNCTION_NAME"
+          echo "Log group: $LAMBDA_LOG_GROUP"
+          
+          # Get the most recent log streams
+          echo "Retrieving recent log streams..."
+          LOG_STREAMS=$(aws logs describe-log-streams \
+            --log-group-name "$LAMBDA_LOG_GROUP" \
+            --order-by LastEventTime \
+            --descending \
+            --limit 3 \
+            --query "logStreams[*].logStreamName" \
+            --output text)
+          
+          if [ -z "$LOG_STREAMS" ]; then
+            echo "::warning::No log streams found for Lambda function"
+          else
+            # For each log stream, get the most recent events
+            for STREAM in $LOG_STREAMS; do
+              echo "=== Log stream: $STREAM ==="
+              aws logs get-log-events \
+                --log-group-name "$LAMBDA_LOG_GROUP" \
+                --log-stream-name "$STREAM" \
+                --limit 50 \
+                --query "events[*].message" \
+                --output text
+              
+              echo ""
+            done
+            
+            # Look specifically for error messages
+            echo "=== Searching for error messages ==="
+            for STREAM in $LOG_STREAMS; do
+              aws logs filter-log-events \
+                --log-group-name "$LAMBDA_LOG_GROUP" \
+                --log-stream-names "$STREAM" \
+                --filter-pattern "ERROR" \
+                --query "events[*].message" \
+                --output text
+            done
+          fi
       
       # Display warning if AWS credentials are invalid
       - name: AWS credentials warning
@@ -250,8 +311,19 @@ jobs:
         run: |
           echo "::warning::Skipping deployment steps due to invalid AWS credentials. Please update the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets."
       
-      - name: Send deployment notification
+      - name: Check for Slack webhook
+        id: check-slack-webhook
         if: always()
+        run: |
+          if [[ -n "${{ secrets.SLACK_WEBHOOK }}" ]]; then
+            echo "has_slack_webhook=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::SLACK_WEBHOOK secret is not set. Skipping Slack notification."
+            echo "has_slack_webhook=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send deployment notification
+        if: always() && steps.check-slack-webhook.outputs.has_slack_webhook == 'true'
         uses: rtCamp/action-slack-notify@v2.2.0
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
