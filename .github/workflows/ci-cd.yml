@@ -332,12 +332,14 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && steps.api-test.outputs.api_test_success != 'true'
         working-directory: ./terraform
         run: |
-          # Extract Lambda function name from Terraform output
-          LAMBDA_FUNCTION_NAME=$(terraform output -raw lambda_function_name | tr -d '\n')
+          # Extract Lambda function name from Terraform output - fix the command
+          echo "Extracting Lambda function name..."
+          LAMBDA_FUNCTION_NAME=$(terraform output -raw lambda_function_name)
+          LAMBDA_FUNCTION_NAME=$(echo "$LAMBDA_FUNCTION_NAME" | tr -d '\n' | tr -d '\r' | sed 's/::debug::.*$//')
           LAMBDA_LOG_GROUP="/aws/lambda/$LAMBDA_FUNCTION_NAME"
           
-          echo "Checking logs for Lambda function: $LAMBDA_FUNCTION_NAME"
-          echo "Log group: $LAMBDA_LOG_GROUP"
+          echo "Checking logs for Lambda function: '$LAMBDA_FUNCTION_NAME'"
+          echo "Log group: '$LAMBDA_LOG_GROUP'"
           
           # Get the most recent log streams
           echo "Retrieving recent log streams..."
@@ -399,7 +401,32 @@ jobs:
             
             # Check if DB_HOST is set correctly
             DB_HOST=$(echo "$ENV_VARS" | jq -r '.DB_HOST // "not set"')
+            DB_USER=$(echo "$ENV_VARS" | jq -r '.DB_USER // "not set"')
+            DB_NAME=$(echo "$ENV_VARS" | jq -r '.DB_NAME // "not set"')
+            
             echo "DB_HOST: $DB_HOST"
+            echo "DB_USER: $DB_USER"
+            echo "DB_NAME: $DB_NAME"
+            
+            # Check if DB_HOST matches the RDS endpoint
+            if [[ "$DB_HOST" != "${{ steps.check-rds.outputs.rds_endpoint }}" && "${{ steps.check-rds.outputs.rds_endpoint }}" != "" ]]; then
+              echo "::warning::DB_HOST in Lambda environment ($DB_HOST) does not match RDS endpoint (${{ steps.check-rds.outputs.rds_endpoint }})"
+              echo "This may cause connection issues"
+            fi
+            
+            # Try to connect to the RDS instance directly to verify credentials
+            echo "=== Attempting to connect to RDS instance ==="
+            if [[ -n "$DB_HOST" && -n "$DB_USER" && -n "$DB_NAME" ]]; then
+              echo "Installing MySQL client..."
+              apt-get update -qq && apt-get install -qq -y mysql-client
+              
+              echo "Attempting to connect to MySQL at $DB_HOST..."
+              if mysql -h "$DB_HOST" -u "$DB_USER" -p"${{ secrets.DB_PASSWORD }}" -e "SELECT 1" "$DB_NAME" 2>/dev/null; then
+                echo "Successfully connected to RDS instance"
+              else
+                echo "::warning::Failed to connect to RDS instance. This may indicate incorrect credentials or security group issues."
+              fi
+            fi
             
             # Verify RDS instance exists and is available
             echo "=== Checking RDS instance status ==="
