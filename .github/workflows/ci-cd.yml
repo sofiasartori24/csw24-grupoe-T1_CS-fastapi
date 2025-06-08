@@ -332,10 +332,9 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && steps.api-test.outputs.api_test_success != 'true'
         working-directory: ./terraform
         run: |
-          # Extract Lambda function name from Terraform output - fix the command
-          echo "Extracting Lambda function name..."
-          LAMBDA_FUNCTION_NAME=$(terraform output -raw lambda_function_name)
-          LAMBDA_FUNCTION_NAME=$(echo "$LAMBDA_FUNCTION_NAME" | tr -d '\n' | tr -d '\r' | sed 's/::debug::.*$//')
+          # Use a hardcoded Lambda function name from the logs
+          echo "Using Lambda function name from previous logs..."
+          LAMBDA_FUNCTION_NAME="FastAPIApplication-20250605005207"
           LAMBDA_LOG_GROUP="/aws/lambda/$LAMBDA_FUNCTION_NAME"
           
           echo "Checking logs for Lambda function: '$LAMBDA_FUNCTION_NAME'"
@@ -414,7 +413,7 @@ jobs:
               echo "This may cause connection issues"
             fi
             
-            # Try to connect to the RDS instance directly to verify credentials
+            # Try to connect to the RDS instance directly to verify credentials and check schema
             echo "=== Attempting to connect to RDS instance ==="
             if [[ -n "$DB_HOST" && -n "$DB_USER" && -n "$DB_NAME" ]]; then
               echo "Installing MySQL client..."
@@ -423,6 +422,18 @@ jobs:
               echo "Attempting to connect to MySQL at $DB_HOST..."
               if mysql -h "$DB_HOST" -u "$DB_USER" -p"${{ secrets.DB_PASSWORD }}" -e "SELECT 1" "$DB_NAME" 2>/dev/null; then
                 echo "Successfully connected to RDS instance"
+                
+                # Check if tables exist in the database
+                echo "Checking if tables exist in the database..."
+                TABLES=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"${{ secrets.DB_PASSWORD }}" -e "SHOW TABLES" "$DB_NAME" 2>/dev/null)
+                
+                if [[ -z "$TABLES" ]]; then
+                  echo "::warning::No tables found in the database. This is likely the cause of the Internal Server Error."
+                  echo "The database exists but the schema hasn't been created."
+                else
+                  echo "Tables found in the database:"
+                  echo "$TABLES"
+                fi
               else
                 echo "::warning::Failed to connect to RDS instance. This may indicate incorrect credentials or security group issues."
               fi
