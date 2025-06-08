@@ -228,6 +228,19 @@ jobs:
           echo "Waiting for Lambda function to be fully deployed..."
           sleep 30
       
+      # Initialize the database after deployment
+      - name: Initialize database
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        continue-on-error: true
+        run: |
+          echo "Initializing database schema and populating initial data..."
+          INIT_RESPONSE=$(curl -s -X POST "${{ env.API_URL }}/admin/init-db")
+          echo "Database initialization response: $INIT_RESPONSE"
+          
+          # Wait for database initialization to complete
+          echo "Waiting for database initialization to complete..."
+          sleep 10
+      
       # Test deployed API only if AWS credentials are valid
       - name: Test deployed API
         id: api-test
@@ -264,6 +277,11 @@ jobs:
           
           echo "API health check successful"
           echo "api_test_success=true" >> $GITHUB_OUTPUT
+          
+          # Also test the database connection
+          echo "Testing database connection via db-status endpoint..."
+          DB_STATUS_RESPONSE=$(curl -s "${{ env.API_URL }}/db-status")
+          echo "Database status response: $DB_STATUS_RESPONSE"
       
       # Check Lambda function logs to diagnose issues
       - name: Check Lambda function logs
