@@ -347,10 +347,19 @@ jobs:
           echo "Testing database connection via db-status endpoint..."
           DB_STATUS_RESPONSE=$(curl -s "${{ env.API_URL }}/db-status")
           echo "Database status response: $DB_STATUS_RESPONSE"
+          
+          # Check if database connection is successful
+          if [[ "$DB_STATUS_RESPONSE" == *"\"status\":\"connected\""* ]]; then
+            echo "Database connection successful"
+            echo "db_status_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::Database connection check failed"
+            echo "db_status_success=false" >> $GITHUB_OUTPUT
+          fi
       
       # Check Lambda function logs to diagnose issues
       - name: Check Lambda function logs
-        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && steps.api-test.outputs.api_test_success != 'true'
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && (steps.api-test.outputs.api_test_success != 'true' || steps.api-test.outputs.db_status_success != 'true')
         working-directory: ./terraform
         run: |
           # Use a hardcoded Lambda function name from the logs

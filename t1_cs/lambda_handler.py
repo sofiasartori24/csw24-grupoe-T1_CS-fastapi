@@ -112,6 +112,49 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "headers": {"Content-Type": "application/json"}
         }
     
+    # Special handling for db-status endpoint
+    if path == '/db-status' or path.endswith('/db-status'):
+        logger.info("Handling db-status endpoint")
+        try:
+            # Import necessary modules
+            from app.database import get_db_with_retry
+            from sqlalchemy import text
+            
+            # Get a database connection
+            db = get_db_with_retry()
+            
+            try:
+                # Execute a simple query to test the connection
+                result = db.execute(text("SELECT 1")).scalar()
+                
+                # Return success response
+                return {
+                    "statusCode": 200,
+                    "body": json.dumps({"status": "connected", "result": result}),
+                    "headers": {"Content-Type": "application/json"}
+                }
+            except Exception as e:
+                logger.error(f"Database status check failed: {str(e)}")
+                
+                # Return error response
+                return {
+                    "statusCode": 500,
+                    "body": json.dumps({"status": "disconnected", "error": str(e)}),
+                    "headers": {"Content-Type": "application/json"}
+                }
+            finally:
+                # Close the database connection
+                db.close()
+        except Exception as e:
+            logger.error(f"Database connection error: {str(e)}")
+            
+            # Return error response
+            return {
+                "statusCode": 500,
+                "body": json.dumps({"status": "disconnected", "error": str(e)}),
+                "headers": {"Content-Type": "application/json"}
+            }
+    
     try:
         # Execute the handler with retry capability for database operations
         for attempt in range(MAX_RETRIES):
