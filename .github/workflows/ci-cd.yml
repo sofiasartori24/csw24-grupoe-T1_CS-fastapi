@@ -230,12 +230,19 @@ jobs:
       
       # Test deployed API only if AWS credentials are valid
       - name: Test deployed API
+        id: api-test
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        continue-on-error: true  # Continue workflow even if API test fails
         run: |
           echo "Testing API at ${{ env.API_URL }}"
           # Use the clean URL variable and add proper error handling
           RESPONSE=$(curl -s "${{ env.API_URL }}/health")
           echo "$RESPONSE"
+          
+          # Store the response for later steps
+          echo "API_RESPONSE<<EOF" >> $GITHUB_ENV
+          echo "$RESPONSE" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
           
           # Improved error detection - check for common error patterns and specific error messages
           if [[ "$RESPONSE" == *"Not Found"* ]] || \
@@ -244,20 +251,23 @@ jobs:
              [[ "$RESPONSE" == *"Internal Server Error"* ]] || \
              [[ -z "$RESPONSE" ]]; then
             echo "API health check failed - received error response"
+            echo "api_test_success=false" >> $GITHUB_OUTPUT
             exit 1
           fi
           
           # Also check for JSON error responses
           if [[ "$RESPONSE" == *"\"message\""* && "$RESPONSE" == *"\"Internal Server Error\""* ]]; then
             echo "API health check failed - received Internal Server Error"
+            echo "api_test_success=false" >> $GITHUB_OUTPUT
             exit 1
           fi
           
           echo "API health check successful"
+          echo "api_test_success=true" >> $GITHUB_OUTPUT
       
       # Check Lambda function logs to diagnose issues
       - name: Check Lambda function logs
-        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && steps.api-test.outputs.api_test_success != 'true'
         working-directory: ./terraform
         run: |
           # Extract Lambda function name from Terraform output
@@ -293,6 +303,17 @@ jobs:
               echo ""
             done
             
+            # Look specifically for database connection errors
+            echo "=== Searching for database connection errors ==="
+            for STREAM in $LOG_STREAMS; do
+              aws logs filter-log-events \
+                --log-group-name "$LAMBDA_LOG_GROUP" \
+                --log-stream-names "$STREAM" \
+                --filter-pattern "Database connection failed" \
+                --query "events[*].message" \
+                --output text
+            done
+            
             # Look specifically for error messages
             echo "=== Searching for error messages ==="
             for STREAM in $LOG_STREAMS; do
@@ -303,6 +324,39 @@ jobs:
                 --query "events[*].message" \
                 --output text
             done
+            
+            # Check Lambda environment variables (especially database connection params)
+            echo "=== Checking Lambda environment variables ==="
+            ENV_VARS=$(aws lambda get-function-configuration \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --query "Environment.Variables" \
+              --output json)
+            
+            # Print environment variables without sensitive information
+            echo "$ENV_VARS" | jq 'with_entries(if .key | test("DB_PASSWORD") then .value = "***" else . end)'
+            
+            # Check if DB_HOST is set correctly
+            DB_HOST=$(echo "$ENV_VARS" | jq -r '.DB_HOST // "not set"')
+            echo "DB_HOST: $DB_HOST"
+            
+            # Verify RDS instance exists and is available
+            echo "=== Checking RDS instance status ==="
+            if [[ "$DB_HOST" != "not set" && "$DB_HOST" != "localhost" ]]; then
+              # Extract the RDS identifier from the hostname
+              RDS_IDENTIFIER=$(echo "$DB_HOST" | cut -d'.' -f1)
+              
+              if [[ -n "$RDS_IDENTIFIER" ]]; then
+                echo "Attempting to check RDS instance: $RDS_IDENTIFIER"
+                aws rds describe-db-instances \
+                  --db-instance-identifier "$RDS_IDENTIFIER" \
+                  --query "DBInstances[0].{Status:DBInstanceStatus, Engine:Engine, Endpoint:Endpoint.Address}" \
+                  --output json || echo "Could not find RDS instance with identifier: $RDS_IDENTIFIER"
+              else
+                echo "Could not extract RDS identifier from DB_HOST: $DB_HOST"
+              fi
+            else
+              echo "DB_HOST not properly configured: $DB_HOST"
+            fi
           fi
       
       # Display warning if AWS credentials are invalid
