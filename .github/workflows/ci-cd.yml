@@ -218,6 +218,27 @@ jobs:
             echo "rds_exists=false" >> $GITHUB_OUTPUT
           fi
       
+      # Create ECR repository if it doesn't exist
+      - name: Create ECR repository
+        id: create-ecr
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        continue-on-error: true
+        run: |
+          ECR_REPO_NAME="fastapi-lambda"
+          ECR_REPO_URL="030764292549.dkr.ecr.us-east-1.amazonaws.com/$ECR_REPO_NAME"
+          
+          echo "Checking if ECR repository '$ECR_REPO_NAME' exists..."
+          
+          if aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" &>/dev/null; then
+            echo "ECR repository '$ECR_REPO_NAME' exists"
+          else
+            echo "Creating ECR repository '$ECR_REPO_NAME'..."
+            aws ecr create-repository --repository-name "$ECR_REPO_NAME"
+          fi
+          
+          echo "ECR repository URL: $ECR_REPO_URL"
+          echo "ecr_repo_url=$ECR_REPO_URL" >> $GITHUB_OUTPUT
+      
       # Apply Terraform only if AWS credentials are valid
       - name: Terraform Apply
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -491,18 +512,31 @@ jobs:
                   echo "Lambda Security Group ID: $LAMBDA_SG_ID"
                   
                   if [[ "$LAMBDA_SG_ID" != "unknown" ]]; then
-                    SG_RULES=$(aws ec2 describe-security-group-rules \
-                      --filter "Name=group-id,Values=$RDS_SG_ID" \
-                      --query "SecurityGroupRules[?FromPort==3306]" \
+                    # Check if the Lambda security group has access to the RDS security group
+                    echo "Checking if Lambda security group has access to RDS security group..."
+                    
+                    # Get the security group rules for the RDS security group
+                    SG_RULES=$(aws ec2 describe-security-groups \
+                      --group-ids "$RDS_SG_ID" \
+                      --query "SecurityGroups[0].IpPermissions[?FromPort==\`3306\`]" \
                       --output json)
                     
                     echo "RDS Security Group Rules for port 3306: $SG_RULES"
                     
-                    # Check if Lambda SG is allowed
+                    # Check if the Lambda security group is in the source security groups
                     if [[ "$SG_RULES" == *"$LAMBDA_SG_ID"* ]]; then
                       echo "Lambda security group is allowed to access RDS"
                     else
                       echo "::warning::Lambda security group may not have access to RDS"
+                      echo "Adding ingress rule to allow Lambda security group to access RDS..."
+                      
+                      # Add an ingress rule to allow the Lambda security group to access the RDS security group
+                      aws ec2 authorize-security-group-ingress \
+                        --group-id "$RDS_SG_ID" \
+                        --protocol tcp \
+                        --port 3306 \
+                        --source-group "$LAMBDA_SG_ID" \
+                        --description "Allow MySQL connections from Lambda function"
                     fi
                   fi
                 fi

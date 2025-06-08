@@ -134,3 +134,9 @@ variable "log_retention_days" {
   type        = number
   default     = 14
 }
+
+variable "ecr_repository_url" {
+  description = "URL of the ECR repository for the Lambda Docker image"
+  type        = string
+  default     = "030764292549.dkr.ecr.us-east-1.amazonaws.com/fastapi-lambda"
+}

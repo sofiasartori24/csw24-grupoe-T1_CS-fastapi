@@ -44,31 +44,35 @@ resource "aws_security_group_rule" "rds_ingress_from_lambda" {
   description              = "Allow MySQL connections from Lambda function"
 }
 
-# Package the Lambda function code
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/../t1_cs"
-  output_path = "${path.module}/lambda_function.zip"
-  
-  # Exclude unnecessary files
-  excludes = [
-    "__pycache__",
-    "*.pyc",
-    ".coverage",
-    ".pytest_cache"
-  ]
+# Build Docker image for Lambda
+resource "null_resource" "docker_build" {
+  triggers = {
+    dockerfile_hash = filemd5("${path.module}/../Dockerfile.lambda")
+    handler_hash    = filemd5("${path.module}/../t1_cs/lambda_handler.py")
+    requirements_hash = filemd5("${path.module}/../t1_cs/requirements-lambda.txt")
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+      cd ${path.module}/..
+      docker build -t fastapi-lambda:latest -f Dockerfile.lambda .
+      docker tag fastapi-lambda:latest ${var.ecr_repository_url}:latest
+      aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${var.ecr_repository_url}
+      docker push ${var.ecr_repository_url}:latest
+    EOF
+  }
 }
 
-# Create the Lambda function with a fixed name
+# Create the Lambda function with a fixed name using Docker image
 resource "aws_lambda_function" "fastapi_lambda" {
   function_name    = "FastAPIApplication-fixed"
-  filename         = data.archive_file.lambda_zip.output_path
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  image_uri        = "${var.ecr_repository_url}:latest"
+  package_type     = "Image"
   role             = var.lambda_role_arn
-  handler          = "lambda_handler.lambda_handler"
-  runtime          = var.lambda_runtime
   memory_size      = var.lambda_memory_size
   timeout          = var.lambda_timeout
+  
+  depends_on       = [null_resource.docker_build]
   
   # Prevent recreation of the Lambda function
   lifecycle {
