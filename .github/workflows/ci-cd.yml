@@ -208,14 +208,18 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          # Use a completely different approach with a temporary file
-          terraform output -raw api_gateway_url > url.txt
-          # Read the file content
-          API_URL=$(cat url.txt)
-          # Print for debugging
-          echo "API Gateway URL from file: $API_URL"
-          # Set the environment variable
-          echo "API_URL=$API_URL" >> $GITHUB_ENV
+          # Extract only the URL part from terraform output
+          API_URL=$(terraform output -raw api_gateway_url | grep -o 'https://[^[:space:]]*' | head -n 1)
+          # Verify we have a valid URL
+          if [[ $API_URL =~ ^https:// ]]; then
+            echo "Successfully extracted API Gateway URL: $API_URL"
+            echo "API_URL=$API_URL" >> $GITHUB_ENV
+          else
+            echo "Failed to extract a valid API Gateway URL"
+            echo "Raw output was:"
+            terraform output -raw api_gateway_url
+            exit 1
+          fi
       
       # Wait for deployment only if AWS credentials are valid
       - name: Wait for deployment to complete
