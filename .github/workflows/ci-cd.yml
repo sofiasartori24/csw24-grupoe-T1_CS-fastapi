@@ -208,8 +208,8 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          # Extract only the URL part from terraform output
-          API_URL=$(terraform output -raw api_gateway_url | grep -o 'https://[^[:space:]]*' | head -n 1)
+          # Extract only the valid URL part from terraform output (stopping at ::debug:: if present)
+          API_URL=$(terraform output -raw api_gateway_url | grep -o 'https://[^:[:space:]]*\(/[^:[:space:]]*\)*' | head -n 1)
           # Verify we have a valid URL
           if [[ $API_URL =~ ^https:// ]]; then
             echo "Successfully extracted API Gateway URL: $API_URL"
@@ -234,8 +234,12 @@ jobs:
         run: |
           echo "Testing API at ${{ env.API_URL }}"
           # Use the clean URL variable and add proper error handling
-          if ! curl -s "${{ env.API_URL }}/health"; then
-            echo "API health check failed"
+          RESPONSE=$(curl -s "${{ env.API_URL }}/health")
+          echo "$RESPONSE"
+          
+          # Check if response contains error messages
+          if [[ "$RESPONSE" == *"Not Found"* ]] || [[ "$RESPONSE" == *"error"* ]] || [[ -z "$RESPONSE" ]]; then
+            echo "API health check failed - received error response"
             exit 1
           fi
           echo "API health check successful"
