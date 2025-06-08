@@ -22,9 +22,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 # Copy dependencies from builder stage
+COPY --from=builder ${LAMBDA_TASK_ROOT}/requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
 COPY --from=builder /var/runtime /var/runtime
 COPY --from=builder /var/lang /var/lang
 COPY --from=builder /var/task /var/task
+COPY --from=builder /opt /opt
+COPY --from=builder /usr/local/lib/python3.9/site-packages ${LAMBDA_TASK_ROOT}/python/lib/python3.9/site-packages
 
 # Copy application code
 COPY t1_cs/app ${LAMBDA_TASK_ROOT}/app
