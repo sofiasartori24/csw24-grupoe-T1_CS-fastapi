@@ -46,12 +46,9 @@ resource "aws_security_group_rule" "rds_ingress_from_lambda" {
 
 # Build Docker image for Lambda
 resource "null_resource" "docker_build" {
+  # Force rebuild on every apply to ensure latest code is deployed
   triggers = {
-    dockerfile_hash = filemd5("${path.module}/../Dockerfile.lambda")
-    handler_hash    = filemd5("${path.module}/../t1_cs/lambda_handler.py")
-    requirements_hash = filemd5("${path.module}/../t1_cs/requirements-lambda.txt")
-    # Add a timestamp to force a rebuild
-    timestamp = timestamp()
+    always_run = "${timestamp()}"
   }
 
   provisioner "local-exec" {

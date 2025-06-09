@@ -252,6 +252,24 @@ jobs:
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_environment: "prod"
       
+      # Force Lambda function update to ensure latest code is deployed
+      - name: Force Lambda function update
+        if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
+        run: |
+          LAMBDA_FUNCTION_NAME="FastAPIApplication-20250605005207"
+          echo "Forcing update of Lambda function: $LAMBDA_FUNCTION_NAME"
+          
+          # Get the current function configuration
+          aws lambda update-function-configuration \
+            --function-name $LAMBDA_FUNCTION_NAME \
+            --description "Updated at $(date)"
+          
+          echo "Lambda function update triggered"
+          
+          # Wait for the update to complete
+          echo "Waiting for Lambda function update to complete..."
+          sleep 10
+      
       # Get API Gateway URL only if AWS credentials are valid
       - name: Get API Gateway URL
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
