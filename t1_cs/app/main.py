@@ -52,6 +52,35 @@ else:
     logger.info("Running in local environment. Using default OpenAPI URL.")
     app = FastAPI()
 
+# Override the openapi method to include the correct server URL
+def custom_openapi():
+    from fastapi.openapi.utils import get_openapi
+    
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title="FastAPI Application",
+        version="1.0.0",
+        description="FastAPI application with proper API Gateway stage handling",
+        routes=app.routes,
+    )
+    
+    # Set the server URL based on the environment
+    if is_lambda:
+        # In Lambda, include the API Gateway stage name in the server URL
+        openapi_schema["servers"] = [{"url": f"/{api_stage}", "description": "API Gateway stage"}]
+        logger.info(f"Setting OpenAPI server URL to: /{api_stage}")
+    else:
+        # For local development, use the root path
+        openapi_schema["servers"] = [{"url": "", "description": "Local development"}]
+        logger.info("Setting OpenAPI server URL to root path for local development")
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 # Database dependency with retry logic
 def get_db():
     db = None
