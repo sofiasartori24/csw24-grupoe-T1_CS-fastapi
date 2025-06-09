@@ -63,8 +63,8 @@ def format_error_response(status_code: int, message: str, request_id: Optional[s
 handler = Mangum(
     app,
     lifespan="off",
-    api_gateway_base_path=None,
-    api_gateway_strip_base_path=True
+    api_gateway_base_path="Prod",  # Set the base path to the stage name
+    api_gateway_strip_base_path=True  # Strip the base path before passing to FastAPI
 )
 
 # Debug function to log event details
@@ -105,6 +105,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         method = event['requestContext']['http'].get('method', method)
     
     logger.info(f"Request received: {method} {path} (Request ID: {request_id})")
+    
+    # Add more detailed logging for debugging path handling
+    logger.debug(f"Full event: {json.dumps(event)}")
+    logger.debug(f"Path from event: {path}")
+    logger.debug(f"Method from event: {method}")
+    logger.debug(f"Query string parameters: {event.get('queryStringParameters', {})}")
+    logger.debug(f"Path parameters: {event.get('pathParameters', {})}")
+    logger.debug(f"Stage variables: {event.get('stageVariables', {})}")
     
     # Log environment variables for debugging
     logger.debug("Environment variables:")
