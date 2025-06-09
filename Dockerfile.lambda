@@ -23,10 +23,3 @@ COPY t1_cs/lambda_handler.py ${LAMBDA_TASK_ROOT}/
 
 # Set the handler
 CMD ["lambda_handler.lambda_handler"]
-
-# Copy application code
-COPY t1_cs/app ${LAMBDA_TASK_ROOT}/app
-COPY t1_cs/lambda_handler.py ${LAMBDA_TASK_ROOT}/
-
-# Set the handler
-CMD ["lambda_handler.lambda_handler"]

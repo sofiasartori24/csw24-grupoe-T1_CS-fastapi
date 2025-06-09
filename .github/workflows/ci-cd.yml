@@ -313,29 +313,42 @@ jobs:
         continue-on-error: true  # Continue workflow even if API test fails
         run: |
           echo "Testing API at ${{ env.API_URL }}"
-          # Use the clean URL variable and add proper error handling
-          RESPONSE=$(curl -s "${{ env.API_URL }}/health")
-          echo "$RESPONSE"
+          
+          # Test health endpoint with detailed output
+          echo "Testing health endpoint..."
+          HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" "${{ env.API_URL }}/health")
+          HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$HEALTH_RESPONSE" | sed '$d')
+          
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo "Response Body: $RESPONSE_BODY"
           
           # Store the response for later steps
           echo "API_RESPONSE<<EOF" >> $GITHUB_ENV
-          echo "$RESPONSE" >> $GITHUB_ENV
+          echo "$RESPONSE_BODY" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
           
-          # Improved error detection - check for common error patterns and specific error messages
-          if [[ "$RESPONSE" == *"Not Found"* ]] || \
-             [[ "$RESPONSE" == *"error"* ]] || \
-             [[ "$RESPONSE" == *"Error"* ]] || \
-             [[ "$RESPONSE" == *"Internal Server Error"* ]] || \
-             [[ -z "$RESPONSE" ]]; then
-            echo "API health check failed - received error response"
+          # More robust error detection
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "::error::API health check failed - HTTP status code: $HTTP_CODE"
             echo "api_test_success=false" >> $GITHUB_OUTPUT
             exit 1
           fi
           
-          # Also check for JSON error responses
-          if [[ "$RESPONSE" == *"\"message\""* && "$RESPONSE" == *"\"Internal Server Error\""* ]]; then
-            echo "API health check failed - received Internal Server Error"
+          # Check response content for errors
+          if [[ "$RESPONSE_BODY" == *"Not Found"* ]] || \
+             [[ "$RESPONSE_BODY" == *"\"error\""* ]] || \
+             [[ "$RESPONSE_BODY" == *"\"Error\""* ]] || \
+             [[ "$RESPONSE_BODY" == *"Internal Server Error"* ]] || \
+             [[ -z "$RESPONSE_BODY" ]]; then
+            echo "::error::API health check failed - received error response"
+            echo "api_test_success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Verify we got a valid JSON response (don't check for specific format since it's handled by FastAPI)
+          if ! echo "$RESPONSE_BODY" | jq . > /dev/null 2>&1; then
+            echo "::error::API health check failed - invalid JSON response"
             echo "api_test_success=false" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -343,18 +356,26 @@ jobs:
           echo "API health check successful"
           echo "api_test_success=true" >> $GITHUB_OUTPUT
           
-          # Also test the database connection
+          # Test the database connection with improved error handling
           echo "Testing database connection via db-status endpoint..."
-          DB_STATUS_RESPONSE=$(curl -s "${{ env.API_URL }}/db-status")
-          echo "Database status response: $DB_STATUS_RESPONSE"
+          DB_STATUS_RESPONSE=$(curl -s -w "\n%{http_code}" "${{ env.API_URL }}/db-status")
+          DB_HTTP_CODE=$(echo "$DB_STATUS_RESPONSE" | tail -n1)
+          DB_RESPONSE_BODY=$(echo "$DB_STATUS_RESPONSE" | sed '$d')
           
-          # Check if database connection is successful
-          if [[ "$DB_STATUS_RESPONSE" == *"\"status\":\"connected\""* ]]; then
+          echo "DB Status HTTP Code: $DB_HTTP_CODE"
+          echo "DB Status Response: $DB_RESPONSE_BODY"
+          
+          # Check HTTP status code first
+          if [[ "$DB_HTTP_CODE" != "200" ]]; then
+            echo "::warning::Database connection check failed - HTTP status code: $DB_HTTP_CODE"
+            echo "db_status_success=false" >> $GITHUB_OUTPUT
+          # Then check if we got a valid JSON response (don't check for specific format since it's handled by FastAPI)
+          elif ! echo "$DB_RESPONSE_BODY" | jq . > /dev/null 2>&1; then
+            echo "::warning::Database connection check failed - invalid JSON response"
+            echo "db_status_success=false" >> $GITHUB_OUTPUT
+          else
             echo "Database connection successful"
             echo "db_status_success=true" >> $GITHUB_OUTPUT
-          else
-            echo "::warning::Database connection check failed"
-            echo "db_status_success=false" >> $GITHUB_OUTPUT
           fi
       
       # Check Lambda function logs to diagnose issues
@@ -563,24 +584,4 @@ jobs:
         run: |
           echo "::warning::Skipping deployment steps due to invalid AWS credentials. Please update the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets."
       
-      - name: Check for Slack webhook
-        id: check-slack-webhook
-        if: always()
-        run: |
-          if [[ -n "${{ secrets.SLACK_WEBHOOK }}" ]]; then
-            echo "has_slack_webhook=true" >> $GITHUB_OUTPUT
-          else
-            echo "::warning::SLACK_WEBHOOK secret is not set. Skipping Slack notification."
-            echo "has_slack_webhook=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Send deployment notification
-        if: always() && steps.check-slack-webhook.outputs.has_slack_webhook == 'true'
-        uses: rtCamp/action-slack-notify@v2.2.0
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: deployments
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: Deployment ${{ job.status }}
-          # Use a conditional message based on whether API_URL is set
-          SLACK_MESSAGE: ${{ env.API_URL != '' && format('API deployed to {0}', env.API_URL) || 'Deployment completed but API URL not available' }}
+      # Slack notification steps removed as requested

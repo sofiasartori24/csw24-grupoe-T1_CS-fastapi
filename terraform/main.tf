@@ -153,7 +153,7 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
   integration_type   = "AWS_PROXY"
   integration_uri    = aws_lambda_function.fastapi_lambda.invoke_arn
   integration_method = "POST"
-  payload_format_version = "1.0"
+  payload_format_version = "2.0"  # Changed to 2.0 for better compatibility with Mangum
 }
 
 resource "aws_apigatewayv2_route" "proxy_route" {
