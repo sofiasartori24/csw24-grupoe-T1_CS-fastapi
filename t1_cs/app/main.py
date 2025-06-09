@@ -170,3 +170,16 @@ def read_root():
             status_code=200,  # Still return 200 to avoid triggering alarms
             content={"message": "Hello, World!"}  # Always return the expected format
         )
+
+# Test endpoint to diagnose routing issues
+@app.get("/test-route")
+def test_route():
+    """Simple test endpoint to diagnose routing issues"""
+    try:
+        return {"message": "Test route is working!", "status": "success"}
+    except Exception as e:
+        logger.error(f"Test route error: {str(e)}")
+        return JSONResponse(
+            status_code=200,
+            content={"message": "Test route error", "error": str(e)}
+        )
