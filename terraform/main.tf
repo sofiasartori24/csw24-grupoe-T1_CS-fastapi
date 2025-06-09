@@ -65,7 +65,7 @@ resource "null_resource" "docker_build" {
 
 # Create the Lambda function with a fixed name using Docker image
 resource "aws_lambda_function" "fastapi_lambda" {
-  function_name    = "FastAPIApplication-fixed"
+  function_name    = "FastAPIApplication-20250605005207"
   image_uri        = "${var.ecr_repository_url}:latest"
   package_type     = "Image"
   role             = var.lambda_role_arn
@@ -73,11 +73,6 @@ resource "aws_lambda_function" "fastapi_lambda" {
   timeout          = var.lambda_timeout
   
   depends_on       = [null_resource.docker_build]
-  
-  # Prevent recreation of the Lambda function
-  lifecycle {
-    ignore_changes = [function_name]
-  }
 
   environment {
     variables = {
@@ -181,13 +176,8 @@ resource "aws_lambda_permission" "api_gateway_permission" {
 
 # CloudWatch Log Group for Lambda
 resource "aws_cloudwatch_log_group" "lambda_logs" {
-  name              = "/aws/lambda/${aws_lambda_function.fastapi_lambda.function_name}"
+  name              = "/aws/lambda/FastAPIApplication-20250605005207"
   retention_in_days = var.log_retention_days
-  
-  # Prevent recreation of the log group
-  lifecycle {
-    ignore_changes = [name]
-  }
 
   tags = {
     Name        = "lambda-logs"
