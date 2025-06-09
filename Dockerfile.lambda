@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
 # Copy application code
 COPY t1_cs/app ${LAMBDA_TASK_ROOT}/app
-COPY t1_cs/lambda_handler.py ${LAMBDA_TASK_ROOT}/
+COPY t1_cs/simple_lambda_handler.py ${LAMBDA_TASK_ROOT}/
 
 # Set the handler
-CMD ["lambda_handler.lambda_handler"]
+CMD ["simple_lambda_handler.lambda_handler"]

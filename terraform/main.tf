@@ -49,6 +49,7 @@ resource "null_resource" "docker_build" {
   # Force rebuild on every apply to ensure latest code is deployed
   triggers = {
     always_run = "${timestamp()}"
+    handler_hash = filemd5("${path.module}/../t1_cs/simple_lambda_handler.py")
   }
 
   provisioner "local-exec" {
