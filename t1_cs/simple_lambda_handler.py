@@ -4,10 +4,22 @@ import json
 import logging
 import traceback
 from typing import Dict, Any
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from mangum import Mangum
 from app.main import app
+
+# Create a new FastAPI app for testing
+test_app = FastAPI()
+
+@test_app.get("/lambda-test")
+def lambda_test():
+    """Simple test endpoint directly in the Lambda handler"""
+    return {"message": "Lambda test endpoint is working!"}
+
+# Use the original app but add our test endpoint
+app.mount("/test-lambda", test_app)
 
 # Configure logging
 logger = logging.getLogger("simple_lambda_handler")
