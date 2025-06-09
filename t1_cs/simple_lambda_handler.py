@@ -103,6 +103,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Strip the stage name if present
                 if request_path.startswith('/Prod'):
                     request_path = request_path[5:]
+                    # Ensure root path is normalized to '/' instead of empty string
+                    if request_path == '':
+                        request_path = '/'
                 
                 logger.debug(f"Comparing route path '{route_path}' with request path '{request_path}'")
                 
