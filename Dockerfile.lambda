@@ -10,7 +10,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN yum install -y gcc python3-devel openssl-devel && \
     yum clean all
 
-# Copy requirements first for better caching
+# Install pymysql explicitly first to ensure it's available
+RUN pip install pymysql
+
+# Copy requirements and install other dependencies
 COPY t1_cs/requirements-lambda.txt ${LAMBDA_TASK_ROOT}/requirements.txt
 RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
