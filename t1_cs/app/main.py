@@ -31,8 +31,26 @@ if not logger.handlers:
     handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(handler)
 
-# Create FastAPI app
-app = FastAPI()
+# Determine if we're running in AWS Lambda
+is_lambda = os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None
+# Get the API stage name (default to "Prod" if not specified)
+api_stage = os.environ.get("API_STAGE", "Prod")
+
+# Configure FastAPI app with appropriate OpenAPI URL
+if is_lambda:
+    # When running in Lambda, include the stage name in the OpenAPI URL
+    openapi_url = f"/{api_stage}/openapi.json"
+    logger.info(f"Running in Lambda environment. Setting openapi_url to: {openapi_url}")
+    app = FastAPI(openapi_url=openapi_url)
+    
+    # Add a route to serve the OpenAPI schema at the root path for local development compatibility
+    @app.get("/openapi.json")
+    async def get_openapi_schema():
+        return app.openapi()
+else:
+    # For local development, use the default OpenAPI URL
+    logger.info("Running in local environment. Using default OpenAPI URL.")
+    app = FastAPI()
 
 # Database dependency with retry logic
 def get_db():

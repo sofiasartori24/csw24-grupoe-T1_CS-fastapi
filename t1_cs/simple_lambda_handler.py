@@ -97,6 +97,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.debug(f"Query string parameters: {event.get('queryStringParameters', {})}")
         logger.debug(f"Path parameters: {event.get('pathParameters', {})}")
         
+        # Extract API stage from the path and set it as an environment variable
+        # This helps FastAPI configure the correct OpenAPI URL
+        if 'requestContext' in event and 'stage' in event['requestContext']:
+            stage = event['requestContext']['stage']
+            os.environ['API_STAGE'] = stage
+            logger.info(f"Setting API_STAGE environment variable to: {stage}")
+        elif path.startswith('/Prod/'):
+            os.environ['API_STAGE'] = 'Prod'
+            logger.info("Setting API_STAGE environment variable to: Prod (from path)")
+        
         # Check if the path exists in the FastAPI app
         path_exists = False
         for route in app.routes:
