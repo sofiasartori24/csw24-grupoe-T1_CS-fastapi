@@ -47,17 +47,22 @@ for key, value in os.environ.items():
 # Using only parameters supported by the installed Mangum version
 handler = Mangum(
     app,
-    lifespan="off"
+    lifespan="off",
+    api_gateway_base_path="Prod"
 )
 
 # Log Mangum configuration
 logger.info("Mangum configuration:")
 logger.info(f"  api_gateway_base_path: Prod")
-logger.info(f"  api_gateway_strip_base_path: True")
+logger.info(f"  lifespan: off")
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Simple AWS Lambda handler that passes requests to FastAPI.
+    
+    The Mangum handler is configured with api_gateway_base_path="Prod" to properly
+    handle the API Gateway stage name. This ensures that requests with paths like
+    "/Prod/users" are correctly routed to the FastAPI route "/users".
     
     Args:
         event: AWS Lambda event
@@ -100,7 +105,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 route_path = route.path
                 request_path = path
                 
-                # Strip the stage name if present
+                # Strip the stage name if present (fallback mechanism)
+                # Note: This should be handled by Mangum with api_gateway_base_path="Prod",
+                # but we keep this as a safety check for route matching and debugging
                 if request_path.startswith('/Prod'):
                     request_path = request_path[5:]
                     # Ensure root path is normalized to '/' instead of empty string
