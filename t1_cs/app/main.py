@@ -62,7 +62,7 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title="FastAPI Application",
         version="1.0.0",
-        description="FastAPI application with proper API Gateway stage handling",
+        description="FastAPI application with proper API Gateway stage handling for Swagger UI",
         routes=app.routes,
     )
     

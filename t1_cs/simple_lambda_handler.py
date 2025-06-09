@@ -135,9 +135,41 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not path_exists:
             logger.warning(f"No matching route found for path: {path}")
         
-        # Pass the event to the Mangum handler
-        logger.info(f"Passing request to Mangum handler")
-        response = handler(event, context)
+        # Modify the event to ensure the path is correctly formatted
+        # This is a workaround for issues with the api_gateway_base_path parameter
+        if path.startswith('/Prod'):
+            # Create a copy of the event to avoid modifying the original
+            modified_event = event.copy()
+            
+            # Extract the path without the /Prod prefix
+            clean_path = path[5:] if path.startswith('/Prod') else path
+            if clean_path == '':
+                clean_path = '/'
+                
+            logger.info(f"Modifying path from '{path}' to '{clean_path}'")
+            
+            # Update the path in the event
+            if 'path' in modified_event:
+                modified_event['path'] = clean_path
+            
+            if 'rawPath' in modified_event:
+                modified_event['rawPath'] = clean_path
+                
+            # Update the path in requestContext if present
+            if 'requestContext' in modified_event:
+                if 'path' in modified_event['requestContext']:
+                    modified_event['requestContext']['path'] = clean_path
+                
+                if 'http' in modified_event['requestContext'] and 'path' in modified_event['requestContext']['http']:
+                    modified_event['requestContext']['http']['path'] = clean_path
+            
+            # Pass the modified event to the Mangum handler
+            logger.info(f"Passing modified event to Mangum handler with path: {clean_path}")
+            response = handler(modified_event, context)
+        else:
+            # Pass the original event to the Mangum handler
+            logger.info(f"Passing original event to Mangum handler with path: {path}")
+            response = handler(event, context)
         
         # Log the response status code
         status_code = response.get('statusCode', 'unknown')
