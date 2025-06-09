@@ -44,11 +44,10 @@ for key, value in os.environ.items():
         logger.info(f"  {key}: {value}")
 
 # Create a handler for AWS Lambda with proper configuration for API Gateway
+# Using only parameters supported by the installed Mangum version
 handler = Mangum(
     app,
-    lifespan="off",
-    api_gateway_base_path="Prod",  # Set the base path to the stage name
-    api_gateway_strip_base_path=True  # Strip the base path before passing to FastAPI
+    lifespan="off"
 )
 
 # Log Mangum configuration
