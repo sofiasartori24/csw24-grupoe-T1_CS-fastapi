@@ -59,8 +59,13 @@ def format_error_response(status_code: int, message: str, request_id: Optional[s
     
     return error_response
 
-# Create a handler for AWS Lambda with lifespan="off" to avoid initialization issues
-handler = Mangum(app, lifespan="off")
+# Create a handler for AWS Lambda with proper configuration for API Gateway
+handler = Mangum(
+    app,
+    lifespan="off",
+    api_gateway_base_path="/Prod",
+    strip_stage_path=True
+)
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """

@@ -50,6 +50,8 @@ resource "null_resource" "docker_build" {
     dockerfile_hash = filemd5("${path.module}/../Dockerfile.lambda")
     handler_hash    = filemd5("${path.module}/../t1_cs/lambda_handler.py")
     requirements_hash = filemd5("${path.module}/../t1_cs/requirements-lambda.txt")
+    # Add a timestamp to force a rebuild
+    timestamp = timestamp()
   }
 
   provisioner "local-exec" {
