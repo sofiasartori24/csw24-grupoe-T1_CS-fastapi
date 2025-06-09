@@ -1,0 +1,514 @@
+[
+  {
+    "path": "/admin/init-db",
+    "name": "initialize_database",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "initialize_database"
+  },
+  {
+    "path": "/health",
+    "name": "health_check",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "health_check"
+  },
+  {
+    "path": "/db-status",
+    "name": "db_status",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "db_status"
+  },
+  {
+    "path": "/reservations/make_reservation/{user_id}",
+    "name": "make_reservation",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "make_reservation"
+  },
+  {
+    "path": "/reservations/cancel_reservation/{reservation_id}/{user_id}",
+    "name": "cancel_reservation",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "cancel_reservation"
+  },
+  {
+    "path": "/reservations/",
+    "name": "get_all_reservations",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_all_reservations"
+  },
+  {
+    "path": "/reservations/{reservation_id}",
+    "name": "get_reservation",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_reservation"
+  },
+  {
+    "path": "/resources/",
+    "name": "get_resources",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_resources"
+  },
+  {
+    "path": "/resources/{resource_id}",
+    "name": "get_resource_by_id",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_resource_by_id"
+  },
+  {
+    "path": "/resources/{user_id}",
+    "name": "create_resource",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_resource"
+  },
+  {
+    "path": "/resources/{resource_id}/{user_id}",
+    "name": "update_resource",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_resource"
+  },
+  {
+    "path": "/resources/{resource_id}/{user_id}",
+    "name": "delete_resource",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_resource"
+  },
+  {
+    "path": "/lessons/",
+    "name": "get_lessons",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_lessons"
+  },
+  {
+    "path": "/lessons/{lesson_id}",
+    "name": "get_lesson",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_lesson"
+  },
+  {
+    "path": "/lessons/{user_id}",
+    "name": "create_lesson",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_lesson"
+  },
+  {
+    "path": "/lessons/{lesson_id}/{user_id}",
+    "name": "update_lesson",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_lesson"
+  },
+  {
+    "path": "/lessons/{lesson_id}/{user_id}",
+    "name": "delete_lesson",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_lesson"
+  },
+  {
+    "path": "/classes/",
+    "name": "get_classes",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_classes"
+  },
+  {
+    "path": "/classes/{class_id}",
+    "name": "get_class_by_id",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_class_by_id"
+  },
+  {
+    "path": "/classes/{user_id}",
+    "name": "create_class",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_class"
+  },
+  {
+    "path": "/classes/{class_id}/{user_id}",
+    "name": "update_class",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_class"
+  },
+  {
+    "path": "/classes/{class_id}/{user_id}",
+    "name": "delete_class",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_class"
+  },
+  {
+    "path": "/rooms/",
+    "name": "get_rooms",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_rooms"
+  },
+  {
+    "path": "/rooms/{room_id}",
+    "name": "get_room_by_id",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_room_by_id"
+  },
+  {
+    "path": "/rooms/{user_id}",
+    "name": "create_room",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_room"
+  },
+  {
+    "path": "/rooms/{room_id}/{user_id}",
+    "name": "update_room",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_room"
+  },
+  {
+    "path": "/rooms/{room_id}/{user_id}",
+    "name": "delete_room",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_room"
+  },
+  {
+    "path": "/disciplines/",
+    "name": "get_disciplines",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_disciplines"
+  },
+  {
+    "path": "/disciplines/{discipline_id}",
+    "name": "get_discipline",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_discipline"
+  },
+  {
+    "path": "/disciplines/{user_id}",
+    "name": "create_discipline",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_discipline"
+  },
+  {
+    "path": "/disciplines/{discipline_id}/{user_id}",
+    "name": "update_discipline",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_discipline"
+  },
+  {
+    "path": "/disciplines/{discipline_id}/{user_id}",
+    "name": "delete_discipline",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_discipline"
+  },
+  {
+    "path": "/curriculums/",
+    "name": "get_curriculums",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_curriculums"
+  },
+  {
+    "path": "/curriculums/{curriculum_id}",
+    "name": "get_curriculum",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_curriculum"
+  },
+  {
+    "path": "/curriculums/{user_id}",
+    "name": "create_curriculum",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_curriculum"
+  },
+  {
+    "path": "/curriculums/{curriculum_id}/{user_id}",
+    "name": "update_curriculum",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_curriculum"
+  },
+  {
+    "path": "/curriculums/{curriculum_id}/{user_id}",
+    "name": "delete_curriculum",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_curriculum"
+  },
+  {
+    "path": "/evaluations/",
+    "name": "get_evaluations",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_evaluations"
+  },
+  {
+    "path": "/evaluations/{evaluation_id}",
+    "name": "get_evaluation",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_evaluation"
+  },
+  {
+    "path": "/evaluations/{user_id}",
+    "name": "create_evaluation",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_evaluation"
+  },
+  {
+    "path": "/evaluations/{evaluation_id}/{user_id}",
+    "name": "update_evaluation",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_evaluation"
+  },
+  {
+    "path": "/evaluations/{evaluation_id}/{user_id}",
+    "name": "delete_evaluation",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_evaluation"
+  },
+  {
+    "path": "/resource-types/",
+    "name": "get_resource_types",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_resource_types"
+  },
+  {
+    "path": "/resource-types/{resource_type_id}",
+    "name": "get_resource_type",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_resource_type"
+  },
+  {
+    "path": "/resource-types/{user_id}",
+    "name": "create_resource_type",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_resource_type"
+  },
+  {
+    "path": "/resource-types/{resource_type_id}/{user_id}",
+    "name": "update_resource_type",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_resource_type"
+  },
+  {
+    "path": "/resource-types/{resource_type_id}/{user_id}",
+    "name": "delete_resource_type",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_resource_type"
+  },
+  {
+    "path": "/users/",
+    "name": "get_users",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_users"
+  },
+  {
+    "path": "/users/{user_id}",
+    "name": "get_user",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_user"
+  },
+  {
+    "path": "/users/{user_requesting_id}",
+    "name": "create_user",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_user"
+  },
+  {
+    "path": "/users/{user_to_update_id}/{user_requesting_id}",
+    "name": "update_user",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_user"
+  },
+  {
+    "path": "/users/{user_to_delete_id}}/{user_requesting_id}",
+    "name": "delete_user",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_user"
+  },
+  {
+    "path": "/profiles/",
+    "name": "get_profiles",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_profiles"
+  },
+  {
+    "path": "/profiles/{profile_id}",
+    "name": "get_profile",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_profile"
+  },
+  {
+    "path": "/profiles/{user_id}",
+    "name": "create_profile",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_profile"
+  },
+  {
+    "path": "/profiles/{profile_id}/{user_id}",
+    "name": "update_profile",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_profile"
+  },
+  {
+    "path": "/profiles/{profile_id}/{user_id}",
+    "name": "delete_profile",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_profile"
+  },
+  {
+    "path": "/buildings/",
+    "name": "get_buildings",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_buildings"
+  },
+  {
+    "path": "/buildings/{building_id}",
+    "name": "get_building",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "get_building"
+  },
+  {
+    "path": "/buildings/{user_id}",
+    "name": "create_building",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "create_building"
+  },
+  {
+    "path": "/buildings/{building_id}/{user_id}",
+    "name": "update_building",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "update_building"
+  },
+  {
+    "path": "/buildings/{building_id}/{user_id}",
+    "name": "delete_building",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "delete_building"
+  },
+  {
+    "path": "/",
+    "name": "read_root",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "read_root"
+  },
+  {
+    "path": "/test-route",
+    "name": "test_route",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "test_route"
+  }
+]

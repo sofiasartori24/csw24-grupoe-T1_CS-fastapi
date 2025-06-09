@@ -50,6 +50,7 @@ resource "null_resource" "docker_build" {
   triggers = {
     always_run = "${timestamp()}"
     handler_hash = filemd5("${path.module}/../t1_cs/simple_lambda_handler.py")
+    main_hash = filemd5("${path.module}/../t1_cs/app/main.py")
   }
 
   provisioner "local-exec" {
