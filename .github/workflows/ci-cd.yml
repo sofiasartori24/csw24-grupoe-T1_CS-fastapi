@@ -252,23 +252,36 @@ jobs:
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_environment: "prod"
       
-      # Force Lambda function update to ensure latest code is deployed
-      - name: Force Lambda function update
+      # Build and push Docker image for Lambda
+      - name: Build and push Docker image for Lambda
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         run: |
+          ECR_REPO_URL="030764292549.dkr.ecr.us-east-1.amazonaws.com/fastapi-lambda"
           LAMBDA_FUNCTION_NAME="FastAPIApplication-20250605005207"
-          echo "Forcing update of Lambda function: $LAMBDA_FUNCTION_NAME"
           
-          # Get the current function configuration
-          aws lambda update-function-configuration \
-            --function-name $LAMBDA_FUNCTION_NAME \
-            --description "Updated at $(date)"
+          echo "Building Docker image for Lambda..."
+          docker build -t fastapi-lambda:latest -f Dockerfile.lambda .
           
-          echo "Lambda function update triggered"
+          echo "Tagging Docker image..."
+          docker tag fastapi-lambda:latest ${ECR_REPO_URL}:latest
+          
+          echo "Logging in to ECR..."
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REPO_URL}
+          
+          echo "Pushing Docker image to ECR..."
+          docker push ${ECR_REPO_URL}:latest
+          
+          echo "Updating Lambda function code..."
+          aws lambda update-function-code \
+            --region us-east-1 \
+            --function-name ${LAMBDA_FUNCTION_NAME} \
+            --image-uri ${ECR_REPO_URL}:latest
+          
+          echo "Lambda function code update triggered"
           
           # Wait for the update to complete
           echo "Waiting for Lambda function update to complete..."
-          sleep 10
+          sleep 30
       
       # Get API Gateway URL only if AWS credentials are valid
       - name: Get API Gateway URL
