@@ -45,7 +45,7 @@ RUN pip install --no-cache-dir /wheels/* && \
 
 # Copy application code
 COPY t1_cs/app ./app
-COPY t1_cs/lambda_handler.py .
+COPY t1_cs/simple_lambda_handler.py .
 
 # Set permissions
 RUN chown -R app:app /app

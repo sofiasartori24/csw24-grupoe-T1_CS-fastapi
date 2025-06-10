@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     
     services:
-      # Use MySQL service container for integration tests if needed
       mysql:
         image: mysql:8.0
         env:
@@ -640,4 +639,3 @@ jobs:
         run: |
           echo "::warning::Skipping deployment steps due to invalid AWS credentials. Please update the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets."
       
-      # Slack notification steps removed as requested
