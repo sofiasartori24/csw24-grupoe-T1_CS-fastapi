@@ -110,6 +110,7 @@ For the CI/CD pipeline to work, you need to set up the following secrets in your
 |-------------|-------------|
 | `AWS_ACCESS_KEY_ID` | AWS access key with permissions to deploy resources |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret access key |
+| `AWS_SESSION_TOKEN` | AWS secret session token |
 | `DB_USERNAME` | Database username for RDS |
 | `DB_PASSWORD` | Database password for RDS |
 | `SLACK_WEBHOOK` | (Optional) Webhook URL for Slack notifications |
