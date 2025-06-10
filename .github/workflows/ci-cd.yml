@@ -1,5 +1,9 @@
+# CI/CD Pipeline for FastAPI Application
+# This workflow handles building, testing, and deploying the application to AWS Lambda
+
 name: CI/CD Pipeline
 
+# Trigger workflow on push or pull request to main branch
 on:
   push:
     branches: [ main ]
@@ -7,10 +11,15 @@ on:
     branches: [ main ]
 
 jobs:
+  #############################################################################
+  # BUILD AND TEST JOB
+  # Sets up environment, runs tests, and builds Docker image
+  #############################################################################
   build-and-test:
     name: Build and Test
     runs-on: ubuntu-latest
     
+    # Set up MySQL service container for testing
     services:
       mysql:
         image: mysql:8.0
@@ -19,32 +28,39 @@ jobs:
           MYSQL_DATABASE: test_db
         ports:
           - 3306:3306
+        # Health check ensures MySQL is ready before tests run
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     
     steps:
+      # Step 1: Get the code from the repository
       - name: Checkout code
         uses: actions/checkout@v4
       
+      # Step 2: Set up Python environment
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          cache: 'pip'
+          cache: 'pip'  # Cache pip dependencies for faster builds
       
+      # Step 3: Install required Python packages
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r t1_cs/requirements.txt
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov  # Testing and coverage tools
       
+      # Step 4: Run unit tests with coverage reporting
       - name: Run unit tests
         run: |
           pytest t1_cs/tests/test_models.py t1_cs/tests/test_repositories.py t1_cs/tests/test_services.py --cov=t1_cs/app --cov-report=xml
       
+      # Step 5: Run database-specific tests
       - name: Run database tests
         run: |
           pytest t1_cs/tests/test_database.py --cov=t1_cs/app --cov-append --cov-report=xml
       
+      # Step 6: Verify coverage report was generated correctly
       - name: Verify coverage report
         run: |
           if [ -f "coverage.xml" ]; then
@@ -54,6 +70,7 @@ jobs:
             find . -name "coverage.xml" -type f
           fi
       
+      # Step 7: Upload test coverage as an artifact
       - name: Upload test coverage
         uses: actions/upload-artifact@v4
         with:
@@ -61,14 +78,21 @@ jobs:
           path: ./coverage.xml
           if-no-files-found: warn
       
+      # Step 8: Build Docker image for the application
       - name: Build Docker image
         run: |
           docker build -t fastapi-app:${{ github.sha }} .
       
+      # Step 9: Test the Docker image by running it and checking health endpoint
       - name: Test Docker image
         run: |
+          # Start container in detached mode
           docker run --name test-container -d -p 8000:8000 fastapi-app:${{ github.sha }}
+          
+          # Wait for container to initialize
           sleep 5
+          
+          # Check health endpoint
           if ! curl -s http://localhost:8000/health; then
             echo "Health check failed"
             docker logs test-container
@@ -76,23 +100,35 @@ jobs:
             docker rm test-container
             exit 1
           fi
+          
+          # Clean up container
           docker stop test-container
           docker rm test-container
 
+  #############################################################################
+  # DEPLOYMENT JOB
+  # Deploys application to AWS using Terraform and updates Lambda function
+  #############################################################################
   deploy:
     name: Deploy to AWS
-    needs: build-and-test
+    needs: build-and-test  # Only run after build-and-test job succeeds
+    # Only deploy on push to main branch, not on pull requests
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     
     steps:
+      # Step 1: Get the code from the repository
       - name: Checkout code
         uses: actions/checkout@v4
       
-      # Check if AWS credentials are valid
+      #-----------------------------------------------------------------------
+      # AWS CREDENTIALS VALIDATION
+      #-----------------------------------------------------------------------
+      
+      # Step 2: Validate AWS credentials before proceeding
       - name: Check AWS credentials
         id: aws-cred-check
-        continue-on-error: true
+        continue-on-error: true  # Continue workflow even if credentials are invalid
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -108,7 +144,7 @@ jobs:
             echo "aws_creds_valid=false" >> $GITHUB_OUTPUT
           fi
       
-      # Set AWS credentials as environment variables if they're valid
+      # Step 3: Set AWS credentials as environment variables if valid
       - name: Set AWS credentials as environment variables
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         run: |
@@ -118,22 +154,26 @@ jobs:
           echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
           echo "AWS credentials set as environment variables"
       
-      # Setup Terraform only if AWS credentials are valid
+      #-----------------------------------------------------------------------
+      # TERRAFORM SETUP AND INITIALIZATION
+      #-----------------------------------------------------------------------
+      
+      # Step 4: Set up Terraform CLI
       - name: Setup Terraform
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.7.0
       
-      # Initialize Terraform only if AWS credentials are valid
-      - name: Terraform Init
+      # Step 5: Initialize Terraform with local backend first
+      - name: Terraform Init (Local)
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          # Use local backend instead of S3 since the bucket doesn't exist
+          # Use local backend initially since the S3 bucket might not exist yet
           terraform init -backend=false
       
-      # Create S3 bucket for Terraform state if it doesn't exist
+      # Step 6: Create S3 bucket for Terraform state if it doesn't exist
       - name: Create S3 bucket for Terraform state
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         run: |
@@ -151,7 +191,7 @@ jobs:
             # Create bucket in us-east-1
             aws s3api create-bucket --bucket $BUCKET_NAME --region us-east-1
             
-            # Enable versioning
+            # Enable versioning for state file history
             aws s3api put-bucket-versioning --bucket $BUCKET_NAME --versioning-configuration Status=Enabled
             
             # Wait for bucket to be fully created
@@ -162,24 +202,24 @@ jobs:
           # Store bucket name for later use
           echo "TF_BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
       
-      # Initialize Terraform with S3 backend and reconfigure to use new resource names
-      - name: Terraform Init
+      # Step 7: Re-initialize Terraform with S3 backend
+      - name: Terraform Init (S3 Backend)
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          # Use -reconfigure to reinitialize with the new fixed resource names
+          # Use -reconfigure to reinitialize with the S3 backend
           terraform init -reconfigure \
             -backend-config="bucket=${{ env.TF_BUCKET_NAME }}" \
             -backend-config="key=terraform.tfstate" \
             -backend-config="region=us-east-1"
       
-      # Validate Terraform only if AWS credentials are valid
+      # Step 8: Validate Terraform configuration
       - name: Terraform Validate
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: terraform validate
       
-      # Plan Terraform only if AWS credentials are valid
+      # Step 9: Create Terraform plan
       - name: Terraform Plan
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
@@ -189,7 +229,11 @@ jobs:
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_environment: "prod"
       
-      # Check if RDS instance exists before applying Terraform
+      #-----------------------------------------------------------------------
+      # INFRASTRUCTURE CHECKS
+      #-----------------------------------------------------------------------
+      
+      # Step 10: Check if RDS instance exists
       - name: Check RDS instance
         id: check-rds
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
@@ -203,7 +247,7 @@ jobs:
             echo "RDS instance '$RDS_IDENTIFIER' exists"
             echo "rds_exists=true" >> $GITHUB_OUTPUT
             
-            # Get RDS endpoint
+            # Get RDS endpoint for later use
             RDS_ENDPOINT=$(aws rds describe-db-instances \
               --db-instance-identifier "$RDS_IDENTIFIER" \
               --query "DBInstances[0].Endpoint.Address" \
@@ -217,7 +261,7 @@ jobs:
             echo "rds_exists=false" >> $GITHUB_OUTPUT
           fi
       
-      # Create ECR repository if it doesn't exist
+      # Step 11: Create ECR repository if it doesn't exist
       - name: Create ECR repository
         id: create-ecr
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
@@ -238,38 +282,50 @@ jobs:
           echo "ECR repository URL: $ECR_REPO_URL"
           echo "ecr_repo_url=$ECR_REPO_URL" >> $GITHUB_OUTPUT
       
-      # Apply Terraform only if AWS credentials are valid
+      #-----------------------------------------------------------------------
+      # TERRAFORM APPLY
+      #-----------------------------------------------------------------------
+      
+      # Step 12: Apply Terraform configuration to create/update infrastructure
       - name: Terraform Apply
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: ./terraform
-        timeout-minutes: 15
+        timeout-minutes: 15  # Prevent hanging on long-running operations
         run: |
-          # Add timeout to ensure the step doesn't run indefinitely
           terraform apply -auto-approve -var-file=terraform.tfvars
         env:
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_environment: "prod"
       
-      # Build and push Docker image for Lambda
+      #-----------------------------------------------------------------------
+      # DOCKER IMAGE BUILD AND DEPLOYMENT
+      #-----------------------------------------------------------------------
+      
+      # Step 13: Build and push Docker image for Lambda
       - name: Build and push Docker image for Lambda
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         run: |
           ECR_REPO_URL="030764292549.dkr.ecr.us-east-1.amazonaws.com/fastapi-lambda"
           LAMBDA_FUNCTION_NAME="FastAPIApplication-20250605005207"
           
+          # Build Docker image using Lambda-specific Dockerfile
           echo "Building Docker image for Lambda..."
           docker build -t fastapi-lambda:latest -f Dockerfile.lambda .
           
+          # Tag image for ECR
           echo "Tagging Docker image..."
           docker tag fastapi-lambda:latest ${ECR_REPO_URL}:latest
           
+          # Login to ECR
           echo "Logging in to ECR..."
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REPO_URL}
           
+          # Push image to ECR
           echo "Pushing Docker image to ECR..."
           docker push ${ECR_REPO_URL}:latest
           
+          # Update Lambda function to use new image
           echo "Updating Lambda function code..."
           aws lambda update-function-code \
             --region us-east-1 \
@@ -282,13 +338,18 @@ jobs:
           echo "Waiting for Lambda function update to complete..."
           sleep 30
       
-      # Get API Gateway URL only if AWS credentials are valid
+      #-----------------------------------------------------------------------
+      # API GATEWAY AND TESTING
+      #-----------------------------------------------------------------------
+      
+      # Step 14: Get API Gateway URL from Terraform outputs
       - name: Get API Gateway URL
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         working-directory: ./terraform
         run: |
-          # Extract only the valid URL part from terraform output (stopping at ::debug:: if present)
+          # Extract only the valid URL part from terraform output
           API_URL=$(terraform output -raw api_gateway_url | grep -o 'https://[^:[:space:]]*\(/[^:[:space:]]*\)*' | head -n 1)
+          
           # Verify we have a valid URL
           if [[ $API_URL =~ ^https:// ]]; then
             echo "Successfully extracted API Gateway URL: $API_URL"
@@ -300,14 +361,14 @@ jobs:
             exit 1
           fi
       
-      # Wait for deployment only if AWS credentials are valid
+      # Step 15: Wait for deployment to complete
       - name: Wait for deployment to complete
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
         run: |
           echo "Waiting for Lambda function to be fully deployed..."
           sleep 30
       
-      # Initialize the database after deployment
+      # Step 16: Initialize the database after deployment
       - name: Initialize database
         id: init-db
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
@@ -336,7 +397,11 @@ jobs:
           echo "Waiting for database initialization to complete..."
           sleep 10
       
-      # Test deployed API only if AWS credentials are valid
+      #-----------------------------------------------------------------------
+      # API TESTING
+      #-----------------------------------------------------------------------
+      
+      # Step 17: Test deployed API endpoints
       - name: Test deployed API
         id: api-test
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true'
@@ -418,12 +483,14 @@ jobs:
             echo "api_endpoints_success=false" >> $GITHUB_OUTPUT
           fi
           
+          # Print test summary
           echo -e "\n=== Test Summary ==="
           echo "Health endpoint: $([ $HEALTH_SUCCESS -eq 0 ] && echo 'Working' || echo 'Not working')"
           echo "DB Status endpoint: $([ $DB_STATUS_SUCCESS -eq 0 ] && echo 'Working' || echo 'Not working')"
           echo "Test Route endpoint: $([ $TEST_ROUTE_SUCCESS -eq 0 ] && echo 'Working' || echo 'Not working')"
           echo "API endpoints: $([ $USERS_SUCCESS -eq 0 && $PROFILES_SUCCESS -eq 0 && $BUILDINGS_SUCCESS -eq 0 ] && echo 'Working' || echo 'Not working')"
           
+          # Provide diagnostic information
           echo -e "\nDiagnosis:"
           if [[ $HEALTH_SUCCESS -eq 0 && $DB_STATUS_SUCCESS -eq 0 && $TEST_ROUTE_SUCCESS -eq 0 && $USERS_SUCCESS -ne 0 ]]; then
             echo "The issue appears to be with the router configuration. The test route works but API endpoints don't."
@@ -432,8 +499,11 @@ jobs:
           elif [[ $HEALTH_SUCCESS -eq 0 && $DB_STATUS_SUCCESS -eq 0 && $TEST_ROUTE_SUCCESS -eq 0 && $USERS_SUCCESS -eq 0 ]]; then
             echo "All endpoints are working correctly! The issue has been resolved."
           fi
+      #-----------------------------------------------------------------------
+      # TROUBLESHOOTING
+      #-----------------------------------------------------------------------
       
-      # Check Lambda function logs to diagnose issues
+      # Step 18: Check Lambda function logs to diagnose issues
       - name: Check Lambda function logs
         if: steps.aws-cred-check.outputs.aws_creds_valid == 'true' && (steps.api-test.outputs.api_test_success != 'true' || steps.api-test.outputs.db_status_success != 'true')
         working-directory: ./terraform
@@ -638,4 +708,3 @@ jobs:
         if: steps.aws-cred-check.outputs.aws_creds_valid != 'true'
         run: |
           echo "::warning::Skipping deployment steps due to invalid AWS credentials. Please update the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets."
-      
