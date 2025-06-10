@@ -131,6 +131,5 @@ pytest t1_cs/tests/ --cov=t1_cs/app
 ## Authors
 
 * Isabela Guerra
-* Lucas Wolschick
 * Maria Eduarda Maia
 * Sofia Batista Sartori
