@@ -10,7 +10,6 @@ from fastapi.routing import APIRoute
 from mangum import Mangum
 from app.main import app
 
-# Create a new FastAPI app for testing
 test_app = FastAPI()
 
 @test_app.get("/lambda-test")
@@ -29,40 +28,26 @@ if not logger.handlers:
     handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(handler)
 
-# Log all available routes for debugging
-logger.info("Available FastAPI routes:")
-for route in app.routes:
-    if isinstance(route, APIRoute):
-        logger.info(f"Route: {route.path}, Methods: {route.methods}, Name: {route.name}")
+# Initialize logging
+logger.info("FastAPI application initialized")
 
-# Log environment variables for debugging (masking sensitive info)
-logger.info("Environment variables:")
-for key, value in os.environ.items():
-    if key.startswith('DB_') and 'PASSWORD' in key:
-        logger.info(f"  {key}: {'*' * 8}")
-    else:
-        logger.info(f"  {key}: {value}")
+# Log important environment variables
+logger.info("Environment check: Lambda execution environment ready")
 
-# Create a handler for AWS Lambda with proper configuration for API Gateway
-# Using only parameters supported by the installed Mangum version
+# Configure Mangum handler for API Gateway integration
 handler = Mangum(
     app,
     lifespan="off",
     api_gateway_base_path="Prod"
 )
 
-# Log Mangum configuration
-logger.info("Mangum configuration:")
-logger.info(f"  api_gateway_base_path: Prod")
-logger.info(f"  lifespan: off")
+logger.info("Mangum configured with api_gateway_base_path=Prod")
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Simple AWS Lambda handler that passes requests to FastAPI.
+    AWS Lambda handler for FastAPI application.
     
-    The Mangum handler is configured with api_gateway_base_path="Prod" to properly
-    handle the API Gateway stage name. This ensures that requests with paths like
-    "/Prod/users" are correctly routed to the FastAPI route "/users".
+    Handles API Gateway integration and path normalization.
     
     Args:
         event: AWS Lambda event
@@ -90,12 +75,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         logger.info(f"Processing request: {method} {path}")
         
-        # Add more detailed logging for debugging path handling
-        logger.debug(f"Full event: {json.dumps(event)}")
-        logger.debug(f"Path from event: {path}")
-        logger.debug(f"Method from event: {method}")
-        logger.debug(f"Query string parameters: {event.get('queryStringParameters', {})}")
-        logger.debug(f"Path parameters: {event.get('pathParameters', {})}")
+        # Log essential request details
+        logger.debug(f"Path: {path}, Method: {method}")
         
         # Extract API stage from the path and set it as an environment variable
         # This helps FastAPI configure the correct OpenAPI URL
@@ -107,55 +88,35 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             os.environ['API_STAGE'] = 'Prod'
             logger.info("Setting API_STAGE environment variable to: Prod (from path)")
         
-        # Check if the path exists in the FastAPI app
-        path_exists = False
-        for route in app.routes:
-            if isinstance(route, APIRoute):
-                # Remove the leading slash from the path for comparison
-                route_path = route.path
-                request_path = path
-                
-                # Strip the stage name if present (fallback mechanism)
-                # Note: This should be handled by Mangum with api_gateway_base_path="Prod",
-                # but we keep this as a safety check for route matching and debugging
-                if request_path.startswith('/Prod'):
-                    request_path = request_path[5:]
-                    # Ensure root path is normalized to '/' instead of empty string
-                    if request_path == '':
-                        request_path = '/'
-                
-                logger.debug(f"Comparing route path '{route_path}' with request path '{request_path}'")
-                
-                # Check if the route matches the request path
-                if route_path == request_path:
-                    path_exists = True
-                    logger.info(f"Found matching route: {route_path}")
-                    break
+        # Quick route validation
+        request_path = path[5:] if path.startswith('/Prod') else path
+        if request_path == '':
+            request_path = '/'
+            
+        path_exists = any(
+            isinstance(route, APIRoute) and route.path == request_path
+            for route in app.routes
+        )
         
         if not path_exists:
             logger.warning(f"No matching route found for path: {path}")
         
-        # Modify the event to ensure the path is correctly formatted
-        # This is a workaround for issues with the api_gateway_base_path parameter
+        # Handle API Gateway stage prefix in path
         if path.startswith('/Prod'):
-            # Create a copy of the event to avoid modifying the original
             modified_event = event.copy()
             
-            # Extract the path without the /Prod prefix
             clean_path = path[5:] if path.startswith('/Prod') else path
             if clean_path == '':
                 clean_path = '/'
                 
             logger.info(f"Modifying path from '{path}' to '{clean_path}'")
             
-            # Update the path in the event
             if 'path' in modified_event:
                 modified_event['path'] = clean_path
             
             if 'rawPath' in modified_event:
                 modified_event['rawPath'] = clean_path
                 
-            # Update the path in requestContext if present
             if 'requestContext' in modified_event:
                 if 'path' in modified_event['requestContext']:
                     modified_event['requestContext']['path'] = clean_path
@@ -163,12 +124,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if 'http' in modified_event['requestContext'] and 'path' in modified_event['requestContext']['http']:
                     modified_event['requestContext']['http']['path'] = clean_path
             
-            # Pass the modified event to the Mangum handler
-            logger.info(f"Passing modified event to Mangum handler with path: {clean_path}")
+            logger.info(f"Using modified path: {clean_path}")
             response = handler(modified_event, context)
         else:
-            # Pass the original event to the Mangum handler
-            logger.info(f"Passing original event to Mangum handler with path: {path}")
+            logger.info(f"Using original path: {path}")
             response = handler(event, context)
         
         # Log the response status code
@@ -186,11 +145,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.error(traceback.format_exc())
         return {
             'statusCode': 500,
-            'body': json.dumps({
-                'error': str(e),
-                'traceback': traceback.format_exc()
-            }),
-            'headers': {
-                'Content-Type': 'application/json'
-            }
+            'body': json.dumps({'error': str(e)}),
+            'headers': {'Content-Type': 'application/json'}
         }

@@ -52,7 +52,7 @@ else:
     logger.info("Running in local environment. Using default OpenAPI URL.")
     app = FastAPI()
 
-# Override the openapi method to include the correct server URL
+# Configure OpenAPI schema with correct server URL for API Gateway integration
 def custom_openapi():
     from fastapi.openapi.utils import get_openapi
     
@@ -62,19 +62,16 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title="FastAPI Application",
         version="1.0.0",
-        description="FastAPI application with proper API Gateway stage handling for Swagger UI",
+        description="API for resource management system",
         routes=app.routes,
     )
     
-    # Set the server URL based on the environment
     if is_lambda:
-        # In Lambda, include the API Gateway stage name in the server URL
-        openapi_schema["servers"] = [{"url": f"/{api_stage}", "description": "API Gateway stage"}]
+        openapi_schema["servers"] = [{"url": f"/{api_stage}"}]
         logger.info(f"Setting OpenAPI server URL to: /{api_stage}")
     else:
-        # For local development, use the root path
-        openapi_schema["servers"] = [{"url": "", "description": "Local development"}]
-        logger.info("Setting OpenAPI server URL to root path for local development")
+        openapi_schema["servers"] = [{"url": ""}]
+        logger.info("Using default server URL for local development")
     
     app.openapi_schema = openapi_schema
     return app.openapi_schema
