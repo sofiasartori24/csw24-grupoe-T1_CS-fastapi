@@ -74,38 +74,6 @@ pytest t1_cs/tests/ --cov=t1_cs/app
 - AWS CLI configured
 - Terraform installed
 
-### Manual Deployment with Terraform
-
-1. Set up AWS credentials:
-   ```bash
-   # Create aws.env file with your credentials
-   echo "export AWS_ACCESS_KEY_ID=your_access_key" > aws.env
-   echo "export AWS_SECRET_ACCESS_KEY=your_secret_key" >> aws.env
-   echo "export AWS_SESSION_TOKEN=your_session_token" >> aws.env
-   source aws.env
-   ```
-
-2. Update the Terraform variables:
-   ```bash
-   # Edit terraform/terraform.tfvars with your VPC and subnet IDs
-   cd terraform
-   nano terraform.tfvars
-   ```
-
-3. Deploy the infrastructure with Terraform:
-   ```bash
-   terraform init
-   terraform plan
-   terraform apply
-   ```
-
-4. Test the deployed API:
-   ```bash
-   # Get the API Gateway URL from Terraform outputs
-   API_URL=$(terraform output -raw api_gateway_url)
-   curl $API_URL
-   ```
-
 ## CI/CD Pipeline
 
 The project uses GitHub Actions for CI/CD with a workflow defined in `.github/workflows/ci-cd.yml`:
@@ -134,23 +102,18 @@ The project uses GitHub Actions for CI/CD with a workflow defined in `.github/wo
    - Tests the deployed API endpoints
    - Sends deployment notifications
 
-### Error Handling and Notifications
-
-- Failed tests or deployments trigger notifications
-- Test results and logs are available in GitHub Actions
-- Deployment status is reported via Slack (if configured)
-
 ### Required GitHub Secrets
 
-For the CI/CD pipeline to work, you need to set up the following secrets in your GitHub repository:
+For the CI/CD pipeline to work, you need to set up the following secrets since they expire after some time:
 
 | Secret Name | Description |
 |-------------|-------------|
 | `AWS_ACCESS_KEY_ID` | AWS access key with permissions to deploy resources |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret access key |
-| `DB_USERNAME` | Database username for RDS |
-| `DB_PASSWORD` | Database password for RDS |
-| `SLACK_WEBHOOK` | (Optional) Webhook URL for Slack notifications |
+| `AWS_SESSION_TOKEN` | AWS secret session token |
+
+### Accessing the API
+currently the api is available on: https://1jjdwnh7k5.execute-api.us-east-1.amazonaws.com/Prod/docs#
 
 ## Testing
 
@@ -167,8 +130,6 @@ pytest t1_cs/tests/ --cov=t1_cs/app
 
 ## Authors
 
-* Henrique Juchem
 * Isabela Guerra
-* Lucas Wolschick
 * Maria Eduarda Maia
 * Sofia Batista Sartori
