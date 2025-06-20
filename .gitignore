@@ -70,3 +70,5 @@ t1_cs/typing_inspection-*.dist-info/
 t1_cs/bin/
 t1_cs/typing_extensions.py
 .DS_Store
+/frontend/node_modules/
+venv310/
