@@ -15,10 +15,29 @@ export const createClass = async (userId: number, data: any) => {
   return response.data;
 };
 
-export const updateClass = async (classId: number, userId: number, data: any) => {
-  const response = await api.put(`/classes/${classId}/${userId}`, data);
+export const updateClass = async (
+  classId: number,
+  userId: number,
+  classData: {
+    semester: string;
+    schedule: string;
+    vacancies: number;
+    discipline_id: number;
+    professor_id: number;
+  }
+) => {
+  const payload = {
+    class_update: classData,
+    user: {
+      id: userId,
+      profile: { id: 3 } // perfil 3 = coordenador
+    }
+  };
+
+  const response = await api.put(`/classes/${classId}/${userId}`, payload);
   return response.data;
 };
+
 
 export const deleteClass = async (classId: number, userId: number) => {
   const response = await api.delete(`/classes/${classId}/${userId}`);

@@ -4,8 +4,9 @@ import Home from './pages/Home';
 import Resources from './pages/Resources';
 import CreateResource from './pages/CreateResource';
 import ResourceDetail from './pages/ResourceDetail';
+import Admin from './pages/Admin';
+import Coordenador from './pages/Coordenador';
 import Menu from './components/Menu';
-import './App.css';
 
 function App() {
   return (
@@ -15,9 +16,9 @@ function App() {
         <div style={{ maxWidth: 900, margin: '40px auto', background: '#fff', borderRadius: 12, boxShadow: '0 2px 16px #0001', padding: 32 }}>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/resources" element={<Resources />} />
-            <Route path="/resources/new" element={<CreateResource />} />
-            <Route path="/resources/:id" element={<ResourceDetail />} />
+            <Route path="/admin" element={<Admin />} />    
+            <Route path="/coordinator" element={<Coordenador />} />
+    
           </Routes>
         </div>
       </div>

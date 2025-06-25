@@ -24,3 +24,10 @@ export const updateUser = async (
   return response.data;
 };
 
+export const deleteUser = async (userIdToDelete: number, requestingUserId: number) => {
+  const response = await api.delete(`/users/${userIdToDelete}/${requestingUserId}`);
+  return response.data;
+};
+
+
+

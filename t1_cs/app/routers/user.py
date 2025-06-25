@@ -1,5 +1,5 @@
 from http.client import HTTPException
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.user import UserService
@@ -44,8 +44,12 @@ class UserRouter:
             require_admin(user)
             return self.service.update_user(db, user_to_update_id, user_update)
 
-        @self.router.delete("/{user_to_delete_id}}/{user_requesting_id}")
-        def delete_user(user_to_delete_id: int, user_requesting_id: int, db: Session = Depends(get_db)):
+        @self.router.delete("/{user_to_delete_id}/{user_requesting_id}", status_code=204)
+        def delete_user(
+            user_to_delete_id: int = Path(...),
+            user_requesting_id: int = Path(...),
+            db: Session = Depends(get_db)
+        ):
             user = self.service.get_user_by_id(db, user_requesting_id)
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")

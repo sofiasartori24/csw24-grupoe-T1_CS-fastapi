@@ -33,8 +33,10 @@ const Menu: React.FC = () => {
   return (
     <nav style={menuStyle}>
       <Link to="/" style={{ ...linkStyle, ...(location.pathname === '/' ? activeStyle : {}) }}>Início</Link>
-      <Link to="/resources" style={{ ...linkStyle, ...(location.pathname.startsWith('/resources') && location.pathname !== '/resources/new' && !location.pathname.match(/^\/resources\/\d+$/) ? activeStyle : {}) }}>Recursos</Link>
-      <Link to="/resources/new" style={{ ...linkStyle, ...(location.pathname === '/resources/new' ? activeStyle : {}) }}>Novo Recurso</Link>
+      <Link to="/admin" style={{ ...linkStyle, ...(location.pathname.startsWith('/admin') ? activeStyle : {}) }}>Administrador</Link>
+      <Link to="/coordinator" style={{ ...linkStyle, ...(location.pathname.startsWith('/coordinator') ? activeStyle : {}) }}>Coordenador</Link>
+      <Link to="/professor" style={{ ...linkStyle, ...(location.pathname.startsWith('/professor') ? activeStyle : {}) }}>Professor</Link>
+
     </nav>
   );
 };
