@@ -51,7 +51,7 @@ const CreateLesson: React.FC = () => {
   const navigate = useNavigate();
   
   // For a real app, this would come from authentication
-  const currentUserId = 2; // Assuming user ID 2 is a professor
+  const currentUserId = 3; 
 
   useEffect(() => {
     const fetchData = async () => {
@@ -147,15 +147,44 @@ const CreateLesson: React.FC = () => {
       
       navigate('/professor');
     } catch (err: any) {
+      // Log the complete error object for debugging
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} lesson:`, err);
+      console.error('Full error details:', {
+        message: err.message,
+        response: err.response,
+        request: err.request,
+        config: err.config
+      });
       
-      // Check for permission error
+      // Check for specific error status codes
       if (err.response?.status === 403) {
         setError('Permission denied: Only professors can manage lessons.');
-      } else if (err.response?.status === 404 && err.response?.data?.detail?.includes('User not found')) {
-        setError('User not found. Please check your credentials.');
+      } else if (err.response?.status === 400) {
+        // Bad request - likely invalid data format
+        const errorDetail = err.response?.data?.detail || 'Invalid data format';
+        setError(`Bad request: ${errorDetail}. Please check your input data.`);
+      } else if (err.response?.status === 404) {
+        if (err.response?.data?.detail?.includes('User not found')) {
+          setError('User not found. Please check your credentials.');
+        } else if (err.response?.data?.detail?.includes('Room not found')) {
+          setError('The selected room does not exist or is no longer available.');
+        } else if (err.response?.data?.detail?.includes('Class not found')) {
+          setError('The selected class does not exist or is no longer available.');
+        } else if (err.response?.data?.detail?.includes('Discipline not found')) {
+          setError('The selected discipline does not exist or is no longer available.');
+        } else {
+          setError(`Resource not found: ${err.response?.data?.detail || 'Unknown error'}`);
+        }
+      } else if (err.response?.status === 409) {
+        setError('Conflict: This room is already booked for the selected time slot.');
+      } else if (err.response?.status >= 500) {
+        setError('Server error: The system is currently unavailable. Please try again later.');
+      } else if (!err.response && err.message?.includes('Network Error')) {
+        setError('Network error: Unable to connect to the server. Please check your internet connection.');
       } else {
-        setError(err.response?.data?.detail || `Failed to ${isEditMode ? 'update' : 'create'} lesson. Please try again.`);
+        // Fallback error message with as much detail as possible
+        const errorMessage = err.response?.data?.detail || err.message || `Failed to ${isEditMode ? 'update' : 'create'} lesson`;
+        setError(`Error: ${errorMessage}. Please try again or contact support if the issue persists.`);
       }
     } finally {
       setSubmitting(false);

@@ -3,7 +3,7 @@ import api from './api';
 // Get all lessons
 export const getLessons = async () => {
   try {
-    const response = await api.get('/lessons');
+    const response = await api.get('/lessons/');
     return response.data;
   } catch (error) {
     console.error('Error fetching lessons:', error);
@@ -38,13 +38,20 @@ export const createLesson = async (userId: number, data: any) => {
 // Update an existing lesson
 export const updateLesson = async (lessonId: number, userId: number, data: any) => {
   try {
-    // IMPORTANT: The backend expects the parameters in the opposite order!
-    // The URL pattern is /{lesson_id}/{user_id} but the parameters are (user_id, lesson_id)
-    // So we need to swap the order in the URL
-    const response = await api.put(`/lessons/${userId}/${lessonId}`, data);
+    console.log(`Updating lesson with ID ${lessonId} for user ${userId}`);
+    console.log(`Using URL: /lessons/${lessonId}/${userId}`);
+    console.log('Update data:', data);
+    
+    // Using the standard PUT method with the CORS proxy
+    const response = await api.put(`/lessons/${lessonId}/${userId}`, data);
+    console.log('Update response:', response);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error updating lesson ${lessonId}:`, error);
+    if (error.response) {
+      console.error('Error response:', error.response.data);
+      console.error('Error status:', error.response.status);
+    }
     throw error;
   }
 };
@@ -52,13 +59,19 @@ export const updateLesson = async (lessonId: number, userId: number, data: any) 
 // Delete a lesson
 export const deleteLesson = async (lessonId: number, userId: number) => {
   try {
-    // IMPORTANT: The backend expects the parameters in the opposite order!
-    // The URL pattern is /{lesson_id}/{user_id} but the parameters are (user_id, lesson_id)
-    // So we need to swap the order in the URL
-    const response = await api.delete(`/lessons/${userId}/${lessonId}`);
+    console.log(`Deleting lesson with ID ${lessonId} for user ${userId}`);
+    console.log(`Using URL: /lessons/${lessonId}/${userId}`);
+    
+    // Using the standard DELETE method with the CORS proxy
+    const response = await api.delete(`/lessons/${lessonId}/${userId}`);
+    console.log('Delete response:', response);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error deleting lesson ${lessonId}:`, error);
+    if (error.response) {
+      console.error('Error response:', error.response.data);
+      console.error('Error status:', error.response.status);
+    }
     throw error;
   }
 };
