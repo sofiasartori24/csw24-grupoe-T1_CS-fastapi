@@ -50,13 +50,21 @@ else:
     logger.info("Running in local environment. Using default OpenAPI URL.")
     app = FastAPI()
 
-# ✅ CORS Middleware ativado para evitar erros no frontend
+# Enhanced CORS Middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Pode trocar por ["http://localhost:3000"] se quiser restringir
-    allow_credentials=True,
-    allow_methods=["*"],
+    # Allow specific origins or use ["*"] for any origin
+    allow_origins=["http://localhost:3000", "*"],
+    # Set to False for DELETE requests to work properly with credentials
+    allow_credentials=False,
+    # Explicitly list all allowed methods to ensure OPTIONS is included
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+    # Allow all headers
     allow_headers=["*"],
+    # Allow browsers to cache preflight results longer
+    max_age=86400,  # 24 hours
+    # Expose these headers to the browser
+    expose_headers=["Content-Type", "X-Requested-With", "Authorization"]
 )
 
 # Configure OpenAPI schema com o servidor correto

@@ -38,16 +38,16 @@ class LessonRouter:
             return self.service.create_lesson(db, lesson)
         
         @self.router.put("/{lesson_id}/{user_id}", response_model=LessonResponse)
-        def update_lesson(user_id: int, lesson_id: int, lesson:LessonUpdate, db: Session = Depends(get_db)):
+        def update_lesson(lesson_id: int, user_id: int, lesson:LessonUpdate, db: Session = Depends(get_db)):
             user_service = UserService()
             user = user_service.get_user_by_id(db, user_id)
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
             require_professor(user)
-            return self.service.update_lesson(lesson_id, lesson)
+            return self.service.update_lesson(db, lesson_id, lesson)
 
         @self.router.delete("/{lesson_id}/{user_id}")
-        def delete_lesson(user_id: int, lesson_id: int, db: Session = Depends(get_db)):
+        def delete_lesson(lesson_id: int, user_id: int, db: Session = Depends(get_db)):
             user_service = UserService()
             user = user_service.get_user_by_id(db, user_id)
             if not user:
