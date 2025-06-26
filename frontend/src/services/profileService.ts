@@ -1,6 +1,6 @@
 import api from './api';
 
-const endpoint = '/profiles';
+const endpoint = '/profiles/';
 
 export const getProfiles = async () => {
   const response = await api.get(endpoint);

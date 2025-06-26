@@ -13,7 +13,7 @@ export const getReservationById = async (reservationId: number) => {
 export const createReservation = async (userId: number, data: any) => {
   try {
     console.log('Creating reservation with data:', data);
-    const response = await api.post(`/reservations/make_reservation/${userId}/`, data);
+    const response = await api.post(`/reservations/make_reservation/${userId}`, data);
     return response.data;
   } catch (error) {
     console.error('Error creating reservation:', error);

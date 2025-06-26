@@ -1,6 +1,6 @@
 import api from './api';
 
-const endpoint = '/resource-types';
+const endpoint = '/resource-types/';
 
 export const getResourceTypes = async () => {
   const response = await api.get(endpoint);

@@ -44,7 +44,7 @@ class ReservationService:
             raise HTTPException(status_code=404, detail="Resource not found")
         
         resource.status = ResourceStatus.available
-        self.db.commit()
+        db.commit()
 
         return {"message": "Reservation cancelled successfully, and resource status updated to available."}
 

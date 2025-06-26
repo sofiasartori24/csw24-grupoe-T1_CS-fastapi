@@ -64,7 +64,7 @@ const MakeReservation: React.FC = () => {
     try {
       // In a real application, you would get this from authentication
       // We need a user with Professor profile
-      const userId = 2; // Try with user ID 2 (assuming this is a professor)
+      const userId = 3; 
       
       console.log('Submitting reservation with data:', {
         lesson_id: Number(selectedLessonId),

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Tester</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f6fa;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #4a6cf7;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #3a5ce5;
+        }
+        button:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }
+        .test-group {
+            margin-bottom: 30px;
+        }
+        .test-group h2 {
+            margin-bottom: 15px;
+            color: #444;
+        }
+        .log-container {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-top: 20px;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        .warning {
+            color: #ffc107;
+        }
+        .test-header {
+            color: #6c757d;
+            font-weight: bold;
+        }
+        .clear-button {
+            background-color: #6c757d;
+        }
+        .clear-button:hover {
+            background-color: #5a6268;
+        }
+        .test-status {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-running {
+            background-color: #ffc107;
+        }
+        .status-success {
+            background-color: #28a745;
+        }
+        .status-error {
+            background-color: #dc3545;
+        }
+        .status-idle {
+            background-color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Tester</h1>
+    
+    <div class="card">
+        <h2>Test All API Operations</h2>
+        <p>Run all API tests to verify the functionality of the application.</p>
+        <div class="button-group">
+            <button id="run-all-tests">Run All Tests</button>
+            <button id="clear-logs" class="clear-button">Clear Logs</button>
+        </div>
+        <div class="test-status">
+            <span>Status: <span id="all-tests-status">Idle</span></span>
+            <span><span id="all-tests-indicator" class="status-indicator status-idle"></span></span>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Test Individual Services</h2>
+        <p>Run tests for specific services to isolate and verify their functionality.</p>
+        
+        <div class="test-group">
+            <h3>User Operations</h3>
+            <button id="test-users">Test User Operations</button>
+            <div class="test-status">
+                <span>Status: <span id="users-status">Idle</span></span>
+                <span><span id="users-indicator" class="status-indicator status-idle"></span></span>
+            </div>
+        </div>
+        
+        <div class="test-group">
+            <h3>Lesson Operations</h3>
+            <button id="test-lessons">Test Lesson Operations</button>
+            <div class="test-status">
+                <span>Status: <span id="lessons-status">Idle</span></span>
+                <span><span id="lessons-indicator" class="status-indicator status-idle"></span></span>
+            </div>
+        </div>
+        
+        <div class="test-group">
+            <h3>Lesson Creation</h3>
+            <button id="test-lesson-creation">Test Lesson Creation</button>
+            <p><small>Tests specifically the lesson creation endpoint with Swagger UI format</small></p>
+            <div class="test-status">
+                <span>Status: <span id="lesson-creation-status">Idle</span></span>
+                <span><span id="lesson-creation-indicator" class="status-indicator status-idle"></span></span>
+            </div>
+        </div>
+        
+        <div class="test-group">
+            <h3>Reservation Operations</h3>
+            <button id="test-reservations">Test Reservation Operations</button>
+            <div class="test-status">
+                <span>Status: <span id="reservations-status">Idle</span></span>
+                <span><span id="reservations-indicator" class="status-indicator status-idle"></span></span>
+            </div>
+        </div>
+        
+        <div class="test-group">
+            <h3>Resource Operations</h3>
+            <button id="test-resources">Test Resource Operations</button>
+            <div class="test-status">
+                <span>Status: <span id="resources-status">Idle</span></span>
+                <span><span id="resources-indicator" class="status-indicator status-idle"></span></span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Test Logs</h2>
+        <div id="log-container" class="log-container"></div>
+    </div>
+
+    <!-- Import the API tester script -->
+    <script type="module">
+        // Import the API tester
+        import * as apiTester from './src/utils/apiTester.ts';
+        
+        // Store original console methods
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleInfo = console.info;
+        const originalConsoleWarn = console.warn;
+        
+        // Override console methods to capture logs
+        console.log = function(...args) {
+            // Call the original method
+            originalConsoleLog.apply(console, args);
+            
+            // Add to our log container
+            const logContainer = document.getElementById('log-container');
+            const logEntry = document.createElement('div');
+            
+            // Format the log message
+            let message = args.map(arg => {
+                if (typeof arg === 'object') {
+                    try {
+                        return JSON.stringify(arg, null, 2);
+                    } catch (e) {
+                        return String(arg);
+                    }
+                }
+                return String(arg);
+            }).join(' ');
+            
+            // Apply styling based on log content
+            if (message.includes('Success')) {
+                logEntry.classList.add('success');
+            } else if (message.includes('TESTING')) {
+                logEntry.classList.add('test-header');
+            } else if (message.includes('ALL TESTS COMPLETED')) {
+                logEntry.classList.add('info');
+            }
+            
+            logEntry.textContent = message;
+            logContainer.appendChild(logEntry);
+            
+            // Auto-scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+        };
+        
+        console.error = function(...args) {
+            // Call the original method
+            originalConsoleError.apply(console, args);
+            
+            // Add to our log container
+            const logContainer = document.getElementById('log-container');
+            const logEntry = document.createElement('div');
+            logEntry.classList.add('error');
+            
+            // Format the log message
+            let message = args.map(arg => {
+                if (typeof arg === 'object') {
+                    try {
+                        return JSON.stringify(arg, null, 2);
+                    } catch (e) {
+                        return String(arg);
+                    }
+                }
+                return String(arg);
+            }).join(' ');
+            
+            logEntry.textContent = message;
+            logContainer.appendChild(logEntry);
+            
+            // Auto-scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+        };
+        
+        // Helper function to update status
+        function updateStatus(id, status, isError = false) {
+            const statusElement = document.getElementById(`${id}-status`);
+            const indicatorElement = document.getElementById(`${id}-indicator`);
+            
+            statusElement.textContent = status;
+            
+            // Update indicator
+            indicatorElement.className = 'status-indicator';
+            if (status === 'Running') {
+                indicatorElement.classList.add('status-running');
+            } else if (status === 'Completed' && !isError) {
+                indicatorElement.classList.add('status-success');
+            } else if (status === 'Failed' || isError) {
+                indicatorElement.classList.add('status-error');
+            } else {
+                indicatorElement.classList.add('status-idle');
+            }
+        }
+        
+        // Set up event listeners
+        document.getElementById('run-all-tests').addEventListener('click', async () => {
+            updateStatus('all-tests', 'Running');
+            try {
+                await apiTester.runAllTests();
+                updateStatus('all-tests', 'Completed');
+            } catch (error) {
+                console.error('Error running all tests:', error);
+                updateStatus('all-tests', 'Failed', true);
+            }
+        });
+        
+        document.getElementById('test-users').addEventListener('click', async () => {
+            updateStatus('users', 'Running');
+            try {
+                await apiTester.testUserOperations();
+                updateStatus('users', 'Completed');
+            } catch (error) {
+                console.error('Error testing user operations:', error);
+                updateStatus('users', 'Failed', true);
+            }
+        });
+        
+        document.getElementById('test-lessons').addEventListener('click', async () => {
+            updateStatus('lessons', 'Running');
+            try {
+                await apiTester.testLessonOperations();
+                updateStatus('lessons', 'Completed');
+            } catch (error) {
+                console.error('Error testing lesson operations:', error);
+                updateStatus('lessons', 'Failed', true);
+            }
+        });
+        
+        document.getElementById('test-lesson-creation').addEventListener('click', async () => {
+            updateStatus('lesson-creation', 'Running');
+            try {
+                await apiTester.testLessonCreation();
+                updateStatus('lesson-creation', 'Completed');
+            } catch (error) {
+                console.error('Error testing lesson creation:', error);
+                updateStatus('lesson-creation', 'Failed', true);
+            }
+        });
+        
+        document.getElementById('test-reservations').addEventListener('click', async () => {
+            updateStatus('reservations', 'Running');
+            try {
+                await apiTester.testReservationOperations();
+                updateStatus('reservations', 'Completed');
+            } catch (error) {
+                console.error('Error testing reservation operations:', error);
+                updateStatus('reservations', 'Failed', true);
+            }
+        });
+        
+        document.getElementById('test-resources').addEventListener('click', async () => {
+            updateStatus('resources', 'Running');
+            try {
+                await apiTester.testResourceOperations();
+                updateStatus('resources', 'Completed');
+            } catch (error) {
+                console.error('Error testing resource operations:', error);
+                updateStatus('resources', 'Failed', true);
+            }
+        });
+        
+        document.getElementById('clear-logs').addEventListener('click', () => {
+            document.getElementById('log-container').innerHTML = '';
+        });
+        
+        // Log initial message
+        console.log('API Tester loaded. Click a button to run tests.');
+    </script>
+</body>
+</html>
