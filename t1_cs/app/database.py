@@ -16,34 +16,51 @@ DB_USER = os.getenv("DB_USER", "user")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
 DB_NAME = os.getenv("DB_NAME", "resources_management")
 
+# Check if we're in testing mode
+TESTING = os.getenv("TESTING", "false").lower() == "true"
+
+# Use SQLite for testing
+if TESTING:
+    logger.info("Using SQLite database for testing")
+    DATABASE_URL = "sqlite:///./test.db"
+else:
+    # Construct the MySQL database URL
+    DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:3306/{DB_NAME}"
+    # Log when the database URL is constructed (without showing the password)
+    masked_url = f"mysql+pymysql://{DB_USER}:****@{DB_HOST}:3306/{DB_NAME}"
+    logger.info(f"Database URL: {masked_url}")
+
 # Connection retry settings
 MAX_RETRIES = 5  # Increased from 3
 RETRY_DELAY = 1  # seconds
 
-# Log database connection info (without password)
-logger.info(f"Database configuration: Host={DB_HOST}, User={DB_USER}, Database={DB_NAME}")
-
-# Construct the database URL
-DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:3306/{DB_NAME}"
-
-# Log when the database URL is constructed (without showing the password)
-masked_url = f"mysql+pymysql://{DB_USER}:****@{DB_HOST}:3306/{DB_NAME}"
-logger.info(f"Database URL: {masked_url}")
-
-# Configure SQLAlchemy engine with connection pooling optimized for serverless
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before using them
-    pool_recycle=300,    # Recycle connections after 5 minutes (reduced from 1 hour)
-    pool_size=5,         # Limit pool size for Lambda environment
-    max_overflow=10,     # Allow up to 10 connections beyond pool_size
-    connect_args={
-        "connect_timeout": 20,  # 20 second connection timeout (increased from 10)
-        "read_timeout": 30,     # 30 second read timeout
-        "write_timeout": 30,    # 30 second write timeout
-        "ssl": {"ssl_mode": "REQUIRED"}  # Enable SSL for secure connections
-    }
-)
+# Configure SQLAlchemy engine based on database type
+if TESTING:
+    # SQLite doesn't need connection pooling or SSL
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}  # Needed for SQLite
+    )
+    logger.info("SQLite engine created for testing")
+else:
+    # Log database connection info (without password)
+    logger.info(f"Database configuration: Host={DB_HOST}, User={DB_USER}, Database={DB_NAME}")
+    
+    # Configure MySQL engine with connection pooling optimized for serverless
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # Verify connections before using them
+        pool_recycle=300,    # Recycle connections after 5 minutes (reduced from 1 hour)
+        pool_size=5,         # Limit pool size for Lambda environment
+        max_overflow=10,     # Allow up to 10 connections beyond pool_size
+        connect_args={
+            "connect_timeout": 20,  # 20 second connection timeout (increased from 10)
+            "read_timeout": 30,     # 30 second read timeout
+            "write_timeout": 30,    # 30 second write timeout
+            "ssl": {"ssl_mode": "REQUIRED"}  # Enable SSL for secure connections
+        }
+    )
+    logger.info("MySQL engine created with connection pooling")
 
 # Log when the engine is created
 logger.info("SQLAlchemy engine created with connection pooling")
@@ -77,6 +94,22 @@ def get_db_with_retry():
     Raises:
         Exception: If all connection attempts fail
     """
+    # For SQLite, we don't need retry logic
+    if TESTING:
+        db = SessionLocal()
+        try:
+            # Test the connection with a simple query
+            logger.info("Testing SQLite database connection...")
+            result = db.execute(text("SELECT 1")).scalar()
+            logger.info(f"SQLite database connection successful. Test query result: {result}")
+            return db
+        except Exception as e:
+            logger.error(f"Error connecting to SQLite database: {str(e)}")
+            if db:
+                db.close()
+            raise
+    
+    # For MySQL, use retry logic
     last_exception = None
     db = None
     
@@ -94,9 +127,9 @@ def get_db_with_retry():
             db = SessionLocal()
             
             # Test the connection with a simple query
-            logger.info(f"Testing database connection (attempt {attempt+1})...")
+            logger.info(f"Testing MySQL connection (attempt {attempt+1})...")
             result = db.execute(text("SELECT 1")).scalar()
-            logger.info(f"Database connection successful (attempt {attempt+1}). Test query result: {result}")
+            logger.info(f"MySQL connection successful (attempt {attempt+1}). Test query result: {result}")
             return db
             
         except (OperationalError, DatabaseError) as e:
@@ -108,14 +141,14 @@ def get_db_with_retry():
             wait_time = base_wait_time + jitter
             
             logger.warning(
-                f"Database connection failed (attempt {attempt+1}/{MAX_RETRIES}): {str(e)}. "
+                f"MySQL connection failed (attempt {attempt+1}/{MAX_RETRIES}): {str(e)}. "
                 f"Host: {DB_HOST}, Database: {DB_NAME}. "
                 f"Retrying in {wait_time:.2f} seconds..."
             )
             time.sleep(wait_time)
         except Exception as e:
             # Handle unexpected exceptions
-            logger.error(f"Unexpected error connecting to database: {str(e)}")
+            logger.error(f"Unexpected error connecting to MySQL: {str(e)}")
             if db:
                 try:
                     db.close()
@@ -124,11 +157,11 @@ def get_db_with_retry():
             raise
     
     # If we get here, all retries failed
-    logger.error(f"All database connection retries ({MAX_RETRIES}) failed. Last error: {str(last_exception)}")
+    logger.error(f"All MySQL connection retries ({MAX_RETRIES}) failed. Last error: {str(last_exception)}")
     
     # Include more diagnostic information in the exception
     error_message = (
-        f"Failed to connect to database after {MAX_RETRIES} attempts. "
+        f"Failed to connect to MySQL after {MAX_RETRIES} attempts. "
         f"Host: {DB_HOST}, Database: {DB_NAME}, User: {DB_USER}. "
         f"Connection timeout: 20 seconds. "
         f"Last error: {str(last_exception)}"

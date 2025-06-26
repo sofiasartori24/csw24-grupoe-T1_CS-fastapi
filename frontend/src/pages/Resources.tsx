@@ -4,8 +4,9 @@ import api from "../services/api";
 
 interface Resource {
     id: number;
-    name: string;
-    // Adicione outros campos conforme sua API
+    description: string;
+    status: string;
+    resource_type_id: number;
 }
 
 const Resources: React.FC = () => {
@@ -16,10 +17,11 @@ const Resources: React.FC = () => {
     useEffect(() => {
         const loadResources = async () => {
             try {
-                const response = await api.get("/resources");
+                const response = await api.get("/resources/");
                 setResources(response.data);
             } catch (err: any) {
-                setError("Erro ao carregar recursos");
+                console.error("Error loading resources:", err);
+                setError(err.response?.data?.detail || "Erro ao carregar recursos. Verifique sua conexão e tente novamente.");
             } finally {
                 setLoading(false);
             }
@@ -42,13 +44,30 @@ const Resources: React.FC = () => {
                 <ul>
                     {resources.map((resource) => (
                         <li key={resource.id}>
-                            <Link to={`/resources/${resource.id}`}>{resource.name}</Link>
+                            <Link to={`/resources/${resource.id}`}>{resource.description}</Link>
+                            <span style={{ marginLeft: '10px', color: getStatusColor(resource.status) }}>
+                                ({resource.status})
+                            </span>
                         </li>
                     ))}
                 </ul>
             )}
         </div>
     );
+
+    // Helper function to get color based on status
+    function getStatusColor(status: string): string {
+        switch (status.toLowerCase()) {
+            case 'available':
+                return 'green';
+            case 'taken':
+                return 'orange';
+            case 'maintenance':
+                return 'red';
+            default:
+                return 'gray';
+        }
+    }
 };
 
 export default Resources;
