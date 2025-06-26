@@ -28,8 +28,9 @@ class ClassService:
             raise HTTPException(status_code=404, detail="Class not found")
         return class_obj
 
-    def delete_class(self, db: Session, class_id: int):
-        class_obj = self.repository.delete(db, class_id)
-        if not class_obj:
-            raise HTTPException(status_code=404, detail="Class not found")
-        return {"message": "Class deleted successfully"}
+    def delete_class(self, class_id: int, user_id: int, db: Session):
+       class_obj = self.repository.delete(db, class_id)
+       if not class_obj:
+           raise HTTPException(status_code=404, detail="Class not found")
+       return {"message": "Class deleted successfully"}
+

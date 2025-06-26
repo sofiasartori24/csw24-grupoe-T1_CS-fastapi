@@ -30,7 +30,14 @@ export const updateClass = async (
     class_update: classData,
     user: {
       id: userId,
-      profile: { id: 3 } // perfil 3 = coordenador
+      email: "atualizado@email.com",
+      name: "Esse pode ter sido atualizado",
+      birth_date: "2025-06-23",
+      gender: "F",
+      profile: {
+        id: 3,
+        name: "Coordinator"
+      }
     }
   };
 
@@ -39,7 +46,27 @@ export const updateClass = async (
 };
 
 
-export const deleteClass = async (classId: number, userId: number) => {
-  const response = await api.delete(`/classes/${classId}/${userId}`);
+export const deleteClass = async (
+  classId: number,
+  userId: number
+) => {
+  const payload = {
+    id: userId,
+    email: "atualizado@email.com",
+    name: "Esse pode ter sido atualizado",
+    birth_date: "2025-06-23",
+    gender: "F",
+    profile: {
+      id: 3,
+      name: "Coordinator"
+    }
+  };
+
+  const response = await api.delete(`/classes/${classId}/${userId}`, {
+    data: payload
+  });
+
   return response.data;
 };
+
+

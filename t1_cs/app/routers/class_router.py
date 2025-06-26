@@ -53,4 +53,4 @@ class ClassRouter:
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
             require_coordinator(user)
-            return self.service.delete_class(db.class_id)
+            return self.service.delete_class(class_id, user_id, db)

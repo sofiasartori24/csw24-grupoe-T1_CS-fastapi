@@ -6,11 +6,16 @@ import {
   updateClass,
   deleteClass
 } from '../services/classService';
-import { getDisciplines } from '../services/disciplineService';
+import {
+  getDisciplines,
+  createDiscipline,
+  updateDiscipline,
+  deleteDiscipline as removeDiscipline,
+} from '../services/disciplineService';
 import { getUsers } from '../services/userService';
 
 const COORDINATOR_ID = 2;
-const COORDINATOR_PROFILE_ID = 3; // id do perfil do coordenador
+const COORDINATOR_PROFILE_ID = 3;
 
 const Coordenador = () => {
   const [classes, setClasses] = useState([]);
@@ -23,6 +28,13 @@ const Coordenador = () => {
 
   const [disciplines, setDisciplines] = useState([]);
   const [professors, setProfessors] = useState([]);
+
+  // Estados para disciplinas
+  const [disciplineName, setDisciplineName] = useState('');
+  const [credits, setCredits] = useState(0);
+  const [program, setProgram] = useState('');
+  const [bibliography, setBibliography] = useState('');
+  const [editingDisciplineId, setEditingDisciplineId] = useState<number | null>(null);
 
   const fetchClasses = async () => {
     const data = await getClasses();
@@ -51,38 +63,34 @@ const Coordenador = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validação extra para garantir que as opções foram selecionadas
-  if (disciplineId === '' || professorId === '') {
-    alert('Por favor, selecione uma disciplina e um professor.');
-    return;
-  }
-
-  const classData = {
-    semester,
-    schedule,
-    vacancies,
-    discipline_id: Number(disciplineId),
-    professor_id: Number(professorId),
-  };
-
-  try {
-    if (editingId !== null) {
-      await updateClass(editingId, COORDINATOR_ID, classData);
-    } else {
-      await createClass(COORDINATOR_ID, classData);
+    if (disciplineId === '' || professorId === '') {
+      alert('Por favor, selecione uma disciplina e um professor.');
+      return;
     }
 
-    resetForm();
-    fetchClasses();
-  } catch (err) {
-    console.error('Erro ao salvar turma:', err);
-  }
-};
+    const classData = {
+      semester,
+      schedule,
+      vacancies,
+      discipline_id: Number(disciplineId),
+      professor_id: Number(professorId),
+    };
 
+    try {
+      if (editingId !== null) {
+        await updateClass(editingId, COORDINATOR_ID, classData);
+      } else {
+        await createClass(COORDINATOR_ID, classData);
+      }
 
-
+      resetForm();
+      fetchClasses();
+    } catch (err) {
+      console.error('Erro ao salvar turma:', err);
+    }
+  };
 
   const handleEdit = (classObj: any) => {
     setSemester(classObj.semester);
@@ -100,6 +108,56 @@ const Coordenador = () => {
     } catch (err) {
       console.error('Erro ao excluir turma:', err);
     }
+  };
+
+  // Funções para gerenciar disciplinas
+  const handleDisciplineSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const disciplineData = {
+      name: disciplineName,
+      credits,
+      program,
+      bibliography
+    };
+
+    try {
+      if (editingDisciplineId !== null) {
+        await updateDiscipline(editingDisciplineId, COORDINATOR_ID, disciplineData);
+      } else {
+        await createDiscipline(COORDINATOR_ID, disciplineData);
+      }
+
+      resetDisciplineForm();
+      fetchOptions();
+    } catch (err) {
+      console.error('Erro ao salvar disciplina:', err);
+    }
+  };
+
+  const handleDisciplineEdit = (discipline: any) => {
+    setDisciplineName(discipline.name);
+    setCredits(discipline.credits);
+    setProgram(discipline.program);
+    setBibliography(discipline.bibliography);
+    setEditingDisciplineId(discipline.id);
+  };
+
+  const handleDisciplineDelete = async (disciplineId: number) => {
+    try {
+      await removeDiscipline(disciplineId, COORDINATOR_ID);
+      fetchOptions();
+    } catch (err) {
+      console.error('Erro ao excluir disciplina:', err);
+    }
+  };
+
+  const resetDisciplineForm = () => {
+    setDisciplineName('');
+    setCredits(0);
+    setProgram('');
+    setBibliography('');
+    setEditingDisciplineId(null);
   };
 
   return (
@@ -169,6 +227,54 @@ const Coordenador = () => {
             <br />
             <button onClick={() => handleEdit(c)}>Editar</button>
             <button onClick={() => handleDelete(c.id)}>Excluir</button>
+          </li>
+        ))}
+      </ul>
+
+      <h2>Gerenciar Disciplinas</h2>
+      <form onSubmit={handleDisciplineSubmit}>
+        <input
+          type="text"
+          placeholder="Nome da Disciplina"
+          value={disciplineName}
+          onChange={(e) => setDisciplineName(e.target.value)}
+          required
+        />
+        <input
+          type="number"
+          placeholder="Créditos"
+          value={credits}
+          onChange={(e) => setCredits(Number(e.target.value))}
+          required
+        />
+        <input
+          type="text"
+          placeholder="Programa"
+          value={program}
+          onChange={(e) => setProgram(e.target.value)}
+          required
+        />
+        <input
+          type="text"
+          placeholder="Bibliografia"
+          value={bibliography}
+          onChange={(e) => setBibliography(e.target.value)}
+          required
+        />
+        <button type="submit">{editingDisciplineId ? 'Atualizar Disciplina' : 'Criar Disciplina'}</button>
+      </form>
+
+      <ul>
+        {disciplines.map((d: any) => (
+          <li key={d.id}>
+            <strong>{d.name}</strong> - {d.credits} créditos
+            <br />
+            Programa: {d.program}
+            <br />
+            Bibliografia: {d.bibliography}
+            <br />
+            <button onClick={() => handleDisciplineEdit(d)}>Editar</button>
+            <button onClick={() => handleDisciplineDelete(d.id)}>Excluir</button>
           </li>
         ))}
       </ul>
