@@ -1,6 +1,7 @@
 from http.client import HTTPException
 from fastapi import APIRouter, Depends, Path
 from sqlalchemy.orm import Session
+from datetime import date
 from app.database import SessionLocal
 from app.services.user import UserService
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
@@ -56,3 +57,18 @@ class UserRouter:
             require_admin(user)
             self.service.delete_user(db, user_to_delete_id)
             return {"message": "User deleted successfully"}
+            
+        @self.router.post("/create-admin", response_model=UserResponse)
+        def create_admin_user(db: Session = Depends(get_db)):
+            admin_data = UserCreate(
+                email="admin@example.com",
+                name="Admin User",
+                birth_date="1990-01-01",
+                gender="Other",
+                profile_id=1  \
+            )
+            
+            try:
+                return self.service.create_user(db, admin_data)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to create admin user: {str(e)}")
