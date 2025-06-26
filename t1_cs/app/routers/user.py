@@ -58,14 +58,15 @@ class UserRouter:
             self.service.delete_user(db, user_to_delete_id)
             return {"message": "User deleted successfully"}
             
-        @self.router.post("/create-admin", response_model=UserResponse)
+        # Use a different route that won't conflict with /{user_requesting_id}
+        @self.router.post("/admin/create", response_model=UserResponse)
         def create_admin_user(db: Session = Depends(get_db)):
             admin_data = UserCreate(
                 email="admin@example.com",
                 name="Admin User",
-                birth_date="1990-01-01",
+                birth_date=date(1990, 1, 1),
                 gender="Other",
-                profile_id=1  \
+                profile_id=1  # Admin profile ID
             )
             
             try:
